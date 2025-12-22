@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --background: #1E1E1E;
+  --foreground: #EDEDED;
+  --window-bg: rgba(60, 60, 60, 0.25); /* 50% opacity gray */
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Calibri", sans-serif;
+  overflow: hidden;
+}

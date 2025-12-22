@@ -1,0 +1,8 @@
+    id: 'p10-architecture',
+    title: 'Beneath Gantry',
+    shortDescription: 'Architectural Design Work',
+    tags: ['Residential', 'Industrial'],
+    content: {
+      description: 'A comprehensive study on parametric design methodologies and their application in contemporary architectural practice.',
+      role: 'Design',
+      technologies: ['Rhino', 'Model Making']
