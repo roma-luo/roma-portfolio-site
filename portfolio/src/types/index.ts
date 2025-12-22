@@ -3,6 +3,7 @@ export interface Project {
   title: string;
   shortDescription: string;
   thumbnail?: string;
+  images?: string[];
   tags: string[];
   category?: 'research/computation' | 'architectural design';
   content?: {
