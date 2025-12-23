@@ -11,10 +11,10 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Simulate loading time (min 1s as per plan)
+    // Simulate loading time
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 1500);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -23,25 +23,27 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
     <AnimatePresence mode="wait" onExitComplete={onLoadingComplete}>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white text-black"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-white"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
         >
-          <div className="flex flex-col items-center gap-4">
-            <motion.div
-              className="h-8 w-8 border-2 border-black border-t-transparent"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            />
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-sm font-medium tracking-wide"
-            >
-              Loading Roma’s workspace...
-            </motion.p>
+          <div className="flex items-center gap-3">
+            {[0, 1, 2].map((index) => (
+              <motion.div
+                key={index}
+                className="h-3 w-3 rounded-full bg-black"
+                animate={{
+                  opacity: [0.3, 1, 0.3],
+                }}
+                transition={{
+                  duration: 1.2,
+                  repeat: Infinity,
+                  delay: index * 0.4,
+                  ease: "easeInOut"
+                }}
+              />
+            ))}
           </div>
         </motion.div>
       )}

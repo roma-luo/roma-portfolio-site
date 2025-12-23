@@ -32,7 +32,7 @@ export default function DesktopCanvas() {
       isExpanded: false,
       zIndex: 13,
       position: { x: 100, y: 720 },
-      size: { width: 280, height: 280 },
+      size: { width: 280, height: 310 },
       type: 'awards',
     },
     {
@@ -68,7 +68,7 @@ export default function DesktopCanvas() {
       isExpanded: false,
       zIndex: 10,
       position: { x: 1670, y: 120 },
-      size: { width: 320, height: 240 },
+      size: { width: 500, height: 240 },
       type: 'location',
     },
     ...projects.map((p, i) => {
@@ -278,18 +278,18 @@ export default function DesktopCanvas() {
 
               <div className="space-y-2 text-sm">
                 <div className="border-l-2 border-white/30 pl-3 py-1">
-                  <div className="font-semibold">Design Excellence Award</div>
+                  <div className="font-semibold">Light-Weight Structure Association Australasia Competition 2025</div>
+                  <div className="text-gray-400 text-xs">2025</div>
+                </div>
+
+                <div className="border-l-2 border-white/30 pl-3 py-1">
+                  <div className="font-semibold">Lemon Grasui Graduate Exhibition Award</div>
+                  <div className="text-gray-400 text-xs">2025</div>
+                </div>
+
+                <div className="border-l-2 border-white/30 pl-3 py-1">
+                  <div className="font-semibold">Best Undergraduate Thesis Award</div>
                   <div className="text-gray-400 text-xs">2023</div>
-                </div>
-
-                <div className="border-l-2 border-white/30 pl-3 py-1">
-                  <div className="font-semibold">Innovation Prize</div>
-                  <div className="text-gray-400 text-xs">2022</div>
-                </div>
-
-                <div className="border-l-2 border-white/30 pl-3 py-1">
-                  <div className="font-semibold">Best Student Project</div>
-                  <div className="text-gray-400 text-xs">2021</div>
                 </div>
               </div>
             </div>
