@@ -11,11 +11,11 @@ interface Location {
 }
 
 const LOCATIONS: Location[] = [
-    { id: 'hk', name: 'Hong Kong', x: 82.5, y: 42 },
-    { id: 'mel', name: 'Melbourne', x: 93, y: 73 },
-    { id: 'tyo', name: 'Tokyo', x: 89, y: 34 },
-    { id: 'gz', name: 'Guangzhou', x: 80, y: 41 },
-    { id: 'sh', name: 'Shanghai', x: 83, y: 36 },
+    { id: 'hk', name: 'Hong Kong', x: 79, y: 40 },
+    { id: 'mel', name: 'Melbourne', x: 88, y: 82 },
+    { id: 'tyo', name: 'Tokyo', x: 86, y: 32 },
+    { id: 'gz', name: 'Guangzhou', x: 80, y: 38 },
+    { id: 'sh', name: 'Shanghai', x: 82, y: 29 },
 ];
 
 export default function LocationWindowContent() {

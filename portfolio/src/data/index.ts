@@ -24,13 +24,13 @@ export function getProjectMedia(projectId: string): string[] {
 export const projects: (Project & { category: ProjectCategory })[] = [
   {
     id: 'p1',
-    title: 'shodo desk.',
+    title: 'shodō desk.',
     shortDescription: 'An installation that translates interpersonal exchanges into public traces',
     thumbnail: '/images/projects/p1-1.png',
     tags: ['Installation', 'Design', 'Interactive'],
     category: 'research/computation',
     content: {
-      description: 'This is a detailed description of the project. It explores innovative approaches to spatial design and computational methods in architecture.',
+      description: 'Shodō Trace is an interactive installation that transposes the contemplative discipline of Japanese calligraphy into a computational instrument for social memory. During the fleeting interval of a coffee break, bodies drift, pause, and orbit—movements that ordinarily evaporate without residue. Here, they are sensed, abstracted, and inscribed.',
       role: 'Designer',
       technologies: ['Arduino', 'Python'],
     }
@@ -43,7 +43,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     tags: ['Computational', 'Parametric', 'Fabrication'],
     category: 'research/computation',
     content: {
-      description: 'A comprehensive study on parametric design methodologies and their application in contemporary architectural practice.',
+      description: 'Experimenting with digital fabrication techniques to create innovative building components using advanced manufacturing methods.',
       role: 'Designer & Researcher',
       technologies: ['Grasshopper', 'Python', '3D Clay Printing'],
     }

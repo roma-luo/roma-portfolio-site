@@ -170,13 +170,13 @@ export default function DesktopCanvas() {
 
       {/* Category Labels (Folder Headers) */}
       <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
-        <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter">
+        <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
           Research /<br />Computation
         </h2>
       </div>
 
       <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
-        <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter">
+        <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
           Architectural<br />Design
         </h2>
       </div>
