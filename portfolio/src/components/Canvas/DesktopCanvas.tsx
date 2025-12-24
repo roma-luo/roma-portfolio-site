@@ -20,7 +20,7 @@ export default function DesktopCanvas() {
       isExpanded: false,
       zIndex: 10,
       position: { x: 100, y: 100 },
-      size: { width: 480, height: 600 },
+      size: { width: 480, height: 690 },
       type: 'profile',
     },
     {
@@ -31,7 +31,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 13,
-      position: { x: 100, y: 720 },
+      position: { x: 100, y: 810 },
       size: { width: 280, height: 310 },
       type: 'awards',
     },
@@ -43,7 +43,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 12,
-      position: { x: 100, y: 770 },
+      position: { x: 100, y: 860 },
       size: { width: 280, height: 250 },
       type: 'contact',
     },
@@ -55,7 +55,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 11,
-      position: { x: 100, y: 820 },
+      position: { x: 100, y: 910 },
       size: { width: 280, height: 400 },
       type: 'experience',
     },
@@ -202,11 +202,18 @@ export default function DesktopCanvas() {
 
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profileData.skills.map(skill => (
-                      <span key={skill} className="px-2 py-1 bg-white/10 text-xs">
-                        {skill}
-                      </span>
+                  <div className="space-y-4">
+                    {Object.entries(profileData.skills).map(([category, skills]) => (
+                      <div key={category}>
+                        <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {skills.map(skill => (
+                            <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

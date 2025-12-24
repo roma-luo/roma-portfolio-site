@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Roma Portfolio",
-  description: "Portfolio of Roma - Architecture & Computational Design",
+  title: "rluo.",
+  description: "roma-luo - architecture & computational design",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

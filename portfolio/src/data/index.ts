@@ -31,7 +31,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     category: 'research/computation',
     content: {
       description: 'Shodō Trace is an interactive installation that transposes the contemplative discipline of Japanese calligraphy into a computational instrument for social memory. During the fleeting interval of a coffee break, bodies drift, pause, and orbit—movements that ordinarily evaporate without residue. Here, they are sensed, abstracted, and inscribed.',
-      role: 'Designer',
+      role: 'Individual Work',
       technologies: ['Arduino', 'Python'],
     }
   },
@@ -43,8 +43,8 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     tags: ['Computational', 'Parametric', 'Fabrication'],
     category: 'research/computation',
     content: {
-      description: 'Experimenting with digital fabrication techniques to create innovative building components using advanced manufacturing methods.',
-      role: 'Designer & Researcher',
+      description: 'Experimenting start&stop techniques in 3D clay printing to create innovative building components.',
+      role: 'Group Work',
       technologies: ['Grasshopper', 'Python', '3D Clay Printing'],
     }
   },
@@ -56,8 +56,8 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     tags: ['Urban', 'Algorithms', 'AI'],
     category: 'research/computation',
     content: {
-      description: 'An urban design project focusing on creating interactive public spaces that respond to community needs and environmental conditions.',
-      role: 'Project Lead',
+      description: 'This project investigates an AI-driven architectural system that enables existing buildings to sense, simulate, and autonomously reconfigure underused spaces through agent-based decision-making and modular interventions, transforming traditional highrise office into adaptive, self-iterative environments.',
+      role: 'Individual Work',
       technologies: ['Arduino', 'Grasshopper', 'Python'],
     }
   },
@@ -69,8 +69,8 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     tags: ['Urban', 'Big Data', 'Algorithms'],
     category: 'research/computation',
     content: {
-      description: 'A sustainable design proposal integrating renewable energy systems and passive design strategies for minimal environmental impact.',
-      role: 'Sustainability Consultant',
+      description: 'CityOne is a lightweight public-participation system for urban planning. By letting people speak a single sentence about their everyday urban experience, the system converts subjective feelings and concrete observations into structured “city cards” through a dual-channel algorithm. These cards surface shared concerns and minority voices, and translate them into small, testable urban interventions—bridging everyday experience and data-driven decision-making with minimal surveillance and effort.',
+      role: 'Individual Work',
       technologies: ['App Development', 'Python'],
     }
   },
@@ -82,8 +82,8 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     tags: ['Urban', 'Machine Learning', 'AI'],
     category: 'research/computation',
     content: {
-      description: 'Experimenting with digital fabrication techniques to create innovative building components using advanced manufacturing methods.',
-      role: 'Fabrication Designer',
+      description: 'This project prototypes an evidence-driven, reproducible human–AI workflow for spatial reconfiguration: multi-source urban data is formalized as generative constraints to batch-synthesize alternatives, then calibrated via an immersive/behavioral feedback loop. A CBD parking-reuse pilot demonstrates the workflow’s transferability and robustness across contexts, with deliverables including a workflow playbook, a metric-to-constraint dictionary, and a decision kit.',
+      role: 'Individual Work',
       technologies: ['ComfyUI', 'ArcGIS'],
     }
   },
@@ -175,7 +175,11 @@ export const profileData = {
       year: '2019 - 2023'
     }
   ],
-  skills: ['Rhino', 'Grasshopper', 'React', 'TypeScript', 'Python', 'Unity Engine', 'Vray for Rhino', 'Fabrication', 'ComfyUI', 'ArcGIS', 'QGIS', 'Java', 'C#', 'Adobe Creative Suite', 'AutoCAD', 'Revit', 'Arduino', 'HTML+CSS']
+  skills: {
+    'Design & Modeling': ['Rhino', 'Revit', 'AutoCAD', 'Adobe Creative Suite', 'Vray for Rhino'],
+    'Computation & Code': ['Grasshopper', 'Python', 'C#', 'Java', 'TypeScript', 'React', 'HTML+CSS'],
+    'Advanced Tech': ['Unity Engine', 'Arduino', 'ComfyUI', 'Fabrication', 'ArcGIS', 'QGIS']
+  }
 };
 
 export const experienceData = [
