@@ -11,6 +11,7 @@ interface DraggableWindowProps {
   onClose: (id: string) => void;
   onMinimize: (id: string) => void;
   onToggleExpand: (id: string, isExpanded: boolean) => void;
+  onMove?: (id: string, position: { x: number; y: number }) => void;
   children: React.ReactNode;
 }
 
@@ -20,10 +21,17 @@ const DraggableWindow = memo(function DraggableWindow({
   onClose,
   onMinimize,
   onToggleExpand,
+  onMove,
   children,
 }: DraggableWindowProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState(windowState.position);
+
+  // Sync position when windowState changes (e.g. smart expansion shift)
+  useEffect(() => {
+    setCurrentPosition(windowState.position);
+  }, [windowState.position]);
 
   useEffect(() => {
     if (!windowState.isOpen || !windowState.isExpanded) return;
@@ -58,25 +66,26 @@ const DraggableWindow = memo(function DraggableWindow({
   return (
     <Draggable
       handle=".window-header"
-      position={undefined}
-      defaultPosition={windowState.position}
+      position={currentPosition}
       nodeRef={nodeRef}
       onStart={() => {
         onFocus(windowState.id);
         setIsDragging(true);
       }}
-      onStop={() => {
+      onDrag={(e, data) => {
+        setCurrentPosition({ x: data.x, y: data.y });
+      }}
+      onStop={(e, data) => {
         setTimeout(() => setIsDragging(false), 50);
+        onMove?.(windowState.id, { x: data.x, y: data.y });
       }}
       bounds="parent"
-      disabled={windowState.isExpanded}
     >
       <div
         ref={nodeRef}
         className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform
           ${windowState.isMinimized ? 'h-10 overflow-hidden' : ''}
-          ${!isDragging && !windowState.isExpanded ? 'transition-[width,height] duration-200 ease-out' : ''}
-          ${windowState.isExpanded ? 'transition-[width,height] duration-300 ease-out' : ''}
+          ${!isDragging ? 'transition-[width,height,transform] duration-300 ease-out' : ''}
         `}
         style={{
           zIndex: windowState.zIndex,

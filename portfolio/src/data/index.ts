@@ -115,7 +115,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p8',
-    title: 'the elevation',
+    title: 'the elevation.',
     shortDescription: 'Public building design',
     thumbnail: '/images/projects/p8-1.png',
     tags: ['architecture design'],
@@ -141,7 +141,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p10',
-    title: 'the veil works',
+    title: 'the veil works.',
     shortDescription: 'Factory design',
     thumbnail: '/images/projects/p10-1.jpg',
     tags: ['architecture design'],

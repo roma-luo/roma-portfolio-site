@@ -118,7 +118,8 @@ export default function DesktopCanvas() {
   ], []);
 
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
-  const [lightboxMedia, setLightboxMedia] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxMedia, setLightboxMedia] = useState<{ media: string[]; currentIndex: number; alt: string } | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const handleFocus = useCallback((id: string) => {
     setWindows((prev) => {
@@ -138,16 +139,61 @@ export default function DesktopCanvas() {
   const handleMinimize = useCallback((id: string) => {
     setWindows((prev) =>
       prev.map((w) =>
-        w.id === id ? { ...w, isMinimized: !w.isMinimized } : w
+        w.id === id ? { ...w, isMinimized: !w.isMinimized, isExpanded: false } : w
       )
     );
   }, []);
 
+  const handleMove = useCallback((id: string, position: { x: number; y: number }) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, position } : w))
+    );
+  }, []);
+
   const handleToggleExpand = useCallback((id: string, isExpanded: boolean) => {
+    // Temporarily disable overflow to prevent scrollbar flash
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 350); // Slightly longer than animation duration
+
     setWindows(prev => prev.map(w => {
       if (w.id === id) {
         const maxZ = Math.max(...prev.map(win => win.zIndex));
-        return { ...w, isExpanded, zIndex: isExpanded ? maxZ + 1 : w.zIndex };
+        let newPosition = w.position;
+
+        if (isExpanded) {
+          // Smart expansion: Check boundaries
+          const EXPANDED_WIDTH = 800;
+          const EXPANDED_HEIGHT = 600;
+          const PADDING = 20;
+
+          let x = w.position.x;
+          let y = w.position.y;
+
+          // Check right edge
+          if (x + EXPANDED_WIDTH > window.innerWidth - PADDING) {
+            x = Math.max(PADDING, window.innerWidth - EXPANDED_WIDTH - PADDING);
+          }
+
+          // Check bottom edge
+          if (y + EXPANDED_HEIGHT > window.innerHeight - PADDING) {
+            y = Math.max(PADDING, window.innerHeight - EXPANDED_HEIGHT - PADDING);
+          }
+
+          // Check left edge (less likely but good for safety)
+          if (x < PADDING) x = PADDING;
+
+          // Check top edge
+          if (y < PADDING) y = PADDING;
+
+          newPosition = { x, y };
+        }
+
+        return {
+          ...w,
+          isExpanded,
+          zIndex: isExpanded ? maxZ + 1 : w.zIndex,
+          position: newPosition
+        };
       }
       return w;
     }));
@@ -156,6 +202,7 @@ export default function DesktopCanvas() {
   return (
     <motion.div
       className="relative w-full h-full min-w-[1440px] min-h-[1200px] bg-[#1E1E1E]"
+      style={{ overflow: isAnimating ? 'hidden' : 'auto' }}
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
@@ -189,6 +236,7 @@ export default function DesktopCanvas() {
           onClose={handleClose}
           onMinimize={handleMinimize}
           onToggleExpand={handleToggleExpand}
+          onMove={handleMove}
         >
           {win.type === 'profile' ? (
             <div className="p-4 flex gap-4">
@@ -348,7 +396,7 @@ export default function DesktopCanvas() {
           ) : (
             <ProjectWindowContent
               win={win}
-              onImageClick={(src, alt) => setLightboxMedia({ src, alt })}
+              onImageClick={(media, index, alt) => setLightboxMedia({ media, currentIndex: index, alt })}
             />
           )}
         </DraggableWindow>
@@ -356,7 +404,8 @@ export default function DesktopCanvas() {
 
       <Lightbox
         isOpen={!!lightboxMedia}
-        src={lightboxMedia?.src || ''}
+        media={lightboxMedia?.media || []}
+        currentIndex={lightboxMedia?.currentIndex || 0}
         alt={lightboxMedia?.alt || ''}
         onClose={() => setLightboxMedia(null)}
       />
@@ -365,7 +414,7 @@ export default function DesktopCanvas() {
 }
 
 // Separate component for project content to improve performance
-function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImageClick?: (src: string, alt: string) => void }) {
+function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImageClick?: (media: string[], index: number, alt: string) => void }) {
   const project = useMemo(() => projects.find(p => p.id === win.projectId), [win.projectId]);
   const media = useMemo(() => project ? getProjectMedia(project.id) : [], [project]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -448,7 +497,7 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
                     controls
                     className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity"
                     playsInline
-                    onClick={() => currentMedia && onImageClick?.(currentMedia, project.title)}
+                    onClick={() => onImageClick?.(media, currentIndex, project.title)}
                     title="Click to expand"
                   />
                 ) : (
@@ -457,7 +506,7 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
                     alt={`${project.title} - ${currentIndex + 1}`}
                     className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
                     loading="lazy"
-                    onClick={() => currentMedia && onImageClick?.(currentMedia, project.title)}
+                    onClick={() => onImageClick?.(media, currentIndex, project.title)}
                     title="Click to expand"
                   />
                 )}
