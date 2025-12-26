@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased h-screen w-screen overflow-hidden">
+      <body className="antialiased h-screen w-screen">
         {children}
       </body>
     </html>

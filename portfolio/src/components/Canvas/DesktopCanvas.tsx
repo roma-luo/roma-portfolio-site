@@ -155,7 +155,7 @@ export default function DesktopCanvas() {
 
   return (
     <motion.div
-      className="relative w-full h-full bg-[#1E1E1E] overflow-hidden"
+      className="relative w-full h-full min-w-[1440px] min-h-[1200px] bg-[#1E1E1E]"
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
