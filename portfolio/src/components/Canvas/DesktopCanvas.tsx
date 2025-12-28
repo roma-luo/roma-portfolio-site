@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DraggableWindow from '../Window/DraggableWindow';
 import LocationWindowContent from '../Window/LocationWindowContent';
@@ -9,7 +9,22 @@ import { WindowState } from '@/types';
 import { projects, profileData, experienceData, getProjectMedia } from '@/data';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+// Layout constants for responsive design
+const LEFT_OFFSET = 100;  // Profile side offset from left edge
+const RIGHT_OFFSET = 100; // Location window offset from right edge
+const LOCATION_WINDOW_WIDTH = 500;
+const PROJECT_AREA_START = 650; // Fixed start position for project area
+
 export default function DesktopCanvas() {
+  // Track screen width for responsive positioning
+  const [screenWidth, setScreenWidth] = useState(1920); // Default for SSR
+
+  useEffect(() => {
+    const updateWidth = () => setScreenWidth(window.innerWidth);
+    updateWidth(); // Set initial value
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
   const INITIAL_WINDOWS: WindowState[] = useMemo(() => [
     {
       id: 'profile',
@@ -121,6 +136,20 @@ export default function DesktopCanvas() {
   const [lightboxMedia, setLightboxMedia] = useState<{ media: string[]; currentIndex: number; alt: string } | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Update Location window position when screen width changes
+  useEffect(() => {
+    const newLocationX = Math.max(
+      PROJECT_AREA_START + 400, // Minimum x to avoid overlapping project cards
+      screenWidth - LOCATION_WINDOW_WIDTH - RIGHT_OFFSET
+    );
+
+    setWindows(prev => prev.map(w =>
+      w.id === 'location'
+        ? { ...w, position: { ...w.position, x: newLocationX } }
+        : w
+    ));
+  }, [screenWidth]);
+
   const handleFocus = useCallback((id: string) => {
     setWindows((prev) => {
       const maxZ = Math.max(...prev.map((w) => w.zIndex));
@@ -153,7 +182,7 @@ export default function DesktopCanvas() {
   const handleToggleExpand = useCallback((id: string, isExpanded: boolean) => {
     // Temporarily disable overflow to prevent scrollbar flash
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 350); // Slightly longer than animation duration
+    setTimeout(() => setIsAnimating(false), 550); // Slightly longer than animation duration
 
     setWindows(prev => prev.map(w => {
       if (w.id === id) {
@@ -201,7 +230,7 @@ export default function DesktopCanvas() {
 
   return (
     <motion.div
-      className="relative w-full h-full min-w-[1440px] min-h-[1200px] bg-[#1E1E1E]"
+      className="relative w-full h-full min-h-[1200px] bg-[#1E1E1E]"
       style={{ overflow: isAnimating ? 'hidden' : 'auto' }}
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}

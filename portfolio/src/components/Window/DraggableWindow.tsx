@@ -85,7 +85,7 @@ const DraggableWindow = memo(function DraggableWindow({
         ref={nodeRef}
         className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform
           ${windowState.isMinimized ? 'h-10 overflow-hidden' : ''}
-          ${!isDragging ? 'transition-[width,height,transform] duration-300 ease-out' : ''}
+          ${!isDragging ? 'transition-[width,height,transform] duration-500 ease-out' : ''}
         `}
         style={{
           zIndex: windowState.zIndex,
