@@ -9,28 +9,7 @@ import { WindowState } from '@/types';
 import { projects, profileData, experienceData, getProjectMedia } from '@/data';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// Layout constants for responsive design - design base dimensions
-// These are the dimensions at which the layout was designed (current layout)
-const DESIGN_WIDTH = 2320;  // Profile(100+480) + Projects(650+340*3) + Location area
-const DESIGN_HEIGHT = 1200; // Minimum height for all content
-
 export default function DesktopCanvas() {
-  // Track screen dimensions for responsive scaling
-  const [screenSize, setScreenSize] = useState({ width: 1920, height: 1080 }); // Default for SSR
-
-  useEffect(() => {
-    const updateSize = () => setScreenSize({
-      width: window.innerWidth,
-      height: window.innerHeight
-    });
-    updateSize(); // Set initial value
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
-
-  // Calculate scale factor based on viewport vs design dimensions
-  // Scale to fit width, maintaining aspect ratio
-  const scale = Math.min(screenSize.width / DESIGN_WIDTH, 1); // Don't scale up, only down
   const INITIAL_WINDOWS: WindowState[] = useMemo(() => [
     {
       id: 'profile',
@@ -141,6 +120,71 @@ export default function DesktopCanvas() {
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
   const [lightboxMedia, setLightboxMedia] = useState<{ media: string[]; currentIndex: number; alt: string } | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [boundaryRect, setBoundaryRect] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | undefined>(undefined);
+
+  // Responsive Scaling Logic
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const BASE_WIDTH = 2300; // The width the layout was designed for
+      const MAX_WIDTH = 1920;  // Max readable width constraint
+
+      // Calculate scale to fit screen, but cap at MAX_WIDTH
+      const targetWidth = Math.min(width, MAX_WIDTH);
+      const newScale = targetWidth / BASE_WIDTH;
+
+      setScale(newScale);
+
+      // Calculate boundaries in the scaled coordinate system
+      // The container is centered, so we need to find the offset
+      // The container width is always BASE_WIDTH (2300) in scaled units
+      // The visible width in scaled units is width / newScale
+
+      // If width > MAX_WIDTH, the container is centered with margin
+      // If width <= MAX_WIDTH, the container fills the width (margin is 0)
+
+      // Actually, let's look at the container rendering:
+      // It has width: 2300.
+      // It is centered by 'justify-center' on the parent.
+
+      // Visible width in scaled pixels:
+      const visibleWidthScaled = width / newScale;
+      const visibleHeightScaled = height / newScale;
+
+      // The container (2300px) is centered in the visible area.
+      // So the left edge of the screen (x=0 in screen pixels) corresponds to:
+      // (2300 - visibleWidthScaled) / 2  <-- This is the x-coordinate of the left screen edge relative to the container's 0
+      // Wait, if visibleWidthScaled > 2300 (very wide screen), then screen left is negative relative to container 0.
+      // If visibleWidthScaled < 2300 (narrow screen), then screen left is positive?
+      // No, if narrow screen, we scaled it so visibleWidthScaled should be exactly 2300?
+      // newScale = width / 2300  => visibleWidthScaled = width / (width/2300) = 2300.
+      // So on narrow screens, minX is 0.
+
+      // On wide screens (width > 1920):
+      // newScale = 1920 / 2300 = 0.834...
+      // visibleWidthScaled = width / 0.834...
+      // visibleWidthScaled will be > 2300.
+      // The container is centered.
+      // So the left edge of the viewport is at x = -(visibleWidthScaled - 2300) / 2
+
+      const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
+
+      setBoundaryRect({
+        minX: -offsetX,
+        maxX: BASE_WIDTH + offsetX,
+        minY: 0,
+        maxY: visibleHeightScaled
+      });
+    };
+
+    // Initial calculation
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleFocus = useCallback((id: string) => {
     setWindows((prev) => {
@@ -187,24 +231,49 @@ export default function DesktopCanvas() {
           const EXPANDED_HEIGHT = 600;
           const PADDING = 20;
 
+          // Use calculated boundaryRect if available, otherwise fallback
+          // We need to access the current boundaryRect here. 
+          // Since we are inside a callback, we can't easily access the state unless we include it in deps
+          // or use a ref. For simplicity, let's just recalculate or use a safe default.
+          // Actually, we can just use the window dimensions to approximate if needed, 
+          // but better to use the state if we add it to dependency.
+          // However, adding boundaryRect to dependency might cause re-creation of callback on resize.
+          // Let's use window.innerWidth/Height and scale to recalculate on the fly for accuracy.
+
+          const width = window.innerWidth;
+          const height = window.innerHeight;
+          const BASE_WIDTH = 2300;
+          const MAX_WIDTH = 1920;
+          const targetWidth = Math.min(width, MAX_WIDTH);
+          const currentScale = targetWidth / BASE_WIDTH;
+
+          const visibleWidthScaled = width / currentScale;
+          const visibleHeightScaled = height / currentScale;
+          const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
+
+          const minX = -offsetX;
+          const maxX = BASE_WIDTH + offsetX;
+          const minY = 0;
+          const maxY = visibleHeightScaled;
+
           let x = w.position.x;
           let y = w.position.y;
 
           // Check right edge
-          if (x + EXPANDED_WIDTH > window.innerWidth - PADDING) {
-            x = Math.max(PADDING, window.innerWidth - EXPANDED_WIDTH - PADDING);
+          if (x + EXPANDED_WIDTH > maxX - PADDING) {
+            x = Math.max(minX + PADDING, maxX - EXPANDED_WIDTH - PADDING);
           }
 
           // Check bottom edge
-          if (y + EXPANDED_HEIGHT > window.innerHeight - PADDING) {
-            y = Math.max(PADDING, window.innerHeight - EXPANDED_HEIGHT - PADDING);
+          if (y + EXPANDED_HEIGHT > maxY - PADDING) {
+            y = Math.max(minY + PADDING, maxY - EXPANDED_HEIGHT - PADDING);
           }
 
-          // Check left edge (less likely but good for safety)
-          if (x < PADDING) x = PADDING;
+          // Check left edge
+          if (x < minX + PADDING) x = minX + PADDING;
 
           // Check top edge
-          if (y < PADDING) y = PADDING;
+          if (y < minY + PADDING) y = minY + PADDING;
 
           newPosition = { x, y };
         }
@@ -221,236 +290,245 @@ export default function DesktopCanvas() {
   }, []);
 
   return (
-    <div
-      className="w-full h-screen overflow-hidden bg-[#1E1E1E]"
-      style={{
-        // Container centers the scaled content
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
-      }}
+    <motion.div
+      className="relative w-full h-full bg-[#1E1E1E] overflow-hidden"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
     >
-      <motion.div
-        className="relative bg-[#1E1E1E]"
+      {/* Optional: Grid or Texture Background */}
+      <div className="absolute inset-0 opacity-5 pointer-events-none"
         style={{
-          // Fixed design dimensions
-          width: DESIGN_WIDTH,
-          height: DESIGN_HEIGHT,
-          minWidth: DESIGN_WIDTH,
-          minHeight: DESIGN_HEIGHT,
-          // Apply proportional scale
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          overflow: isAnimating ? 'hidden' : 'visible',
+          backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)',
+          backgroundSize: '24px 24px'
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+      />
+
+      {/* Centered Scaled Container */}
+      <div
+        className={`w-full h-full flex justify-center ${isAnimating ? 'overflow-hidden' : 'overflow-auto'}`}
+        style={{
+          // Ensure the scrollbar appears if the scaled content is taller than screen
+          alignItems: 'flex-start'
+        }}
       >
-        {/* Optional: Grid or Texture Background */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none"
+        <div
+          className="relative shrink-0 origin-top"
           style={{
-            backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)',
-            backgroundSize: '24px 24px'
+            width: 2300, // BASE_WIDTH
+            height: '100%', // Allow it to grow
+            minHeight: 1200,
+            transform: `scale(${scale})`,
+            // When scaling down, the element takes less space visually but keeps layout space?
+            // No, in flexbox, if we don't adjust width/height, it might be weird.
+            // But transform doesn't affect flow.
+            // So we need to compensate for the empty space if we want it to be truly centered?
+            // Actually, 'justify-center' centers the 2300px block.
+            // If we scale it, it shrinks towards the top-center (origin-top).
+            // So it remains centered visually.
+            marginBottom: -1200 * (1 - scale) // Optional: reduce bottom gap if needed
           }}
-        />
+        >
 
-        {/* Category Labels (Folder Headers) */}
-        <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
-          <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
-            Research /<br />Computation
-          </h2>
-        </div>
+          {/* Category Labels (Folder Headers) */}
+          <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
+            <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
+              Research /<br />Computation
+            </h2>
+          </div>
 
-        <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
-          <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
-            Architectural<br />Design
-          </h2>
-        </div>
+          <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
+            <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
+              Architectural<br />Design
+            </h2>
+          </div>
 
-        {windows.map((win) => (
-          <DraggableWindow
-            key={win.id}
-            windowState={win}
-            onFocus={handleFocus}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onToggleExpand={handleToggleExpand}
-            onMove={handleMove}
-          >
-            {win.type === 'profile' ? (
-              <div className="p-4 flex gap-4">
-                {/* Left side: Text content */}
-                <div className="flex-1 space-y-6">
-                  <div>
-                    <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
-                    <p className="text-lg text-gray-300">{profileData.title}</p>
-                    <p className="text-sm text-gray-400 mt-1 font-light">{profileData.intro}</p>
-                  </div>
+          {windows.map((win) => (
+            <DraggableWindow
+              key={win.id}
+              windowState={win}
+              onFocus={handleFocus}
+              onClose={handleClose}
+              onMinimize={handleMinimize}
+              onToggleExpand={handleToggleExpand}
+              onMove={handleMove}
+              scale={scale}
+              boundaryRect={boundaryRect}
+            >
+              {win.type === 'profile' ? (
+                <div className="p-4 flex gap-4">
+                  {/* Left side: Text content */}
+                  <div className="flex-1 space-y-6">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
+                      <p className="text-lg text-gray-300">{profileData.title}</p>
+                      <p className="text-sm text-gray-400 mt-1 font-light">{profileData.intro}</p>
+                    </div>
 
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
-                    <div className="space-y-4">
-                      {Object.entries(profileData.skills).map(([category, skills]) => (
-                        <div key={category}>
-                          <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {skills.map(skill => (
-                              <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
-                                {skill}
-                              </span>
-                            ))}
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
+                      <div className="space-y-4">
+                        {Object.entries(profileData.skills).map(([category, skills]) => (
+                          <div key={category}>
+                            <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {skills.map(skill => (
+                                <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Education</h3>
+                      {profileData.education.map((edu, i) => (
+                        <div key={i} className="text-sm">
+                          <div className="font-medium">{edu.school}</div>
+                          <div className="text-gray-400">{edu.degree}, {edu.year}</div>
                         </div>
                       ))}
                     </div>
                   </div>
 
+                  {/* Right side: Profile photo */}
+                  <div className="shrink-0">
+                    <img
+                      src="/images/profile/roma.jpg"
+                      alt="Roma Luo"
+                      className="w-32 h-32 object-cover border-2 border-white/20"
+                    />
+                  </div>
+                </div>
+              ) : win.type === 'contact' ? (
+                <div className="p-4 space-y-3">
                   <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Education</h3>
-                    {profileData.education.map((edu, i) => (
-                      <div key={i} className="text-sm">
-                        <div className="font-medium">{edu.school}</div>
-                        <div className="text-gray-400">{edu.degree}, {edu.year}</div>
+                    <h2 className="text-xl font-bold mb-3">Get in Touch</h2>
+                    <p className="text-gray-300 text-xs mb-4 font-light">
+                      Feel free to reach out for collaborations, opportunities, or just to connect.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-6 justify-center">
+                    <a
+                      href="mailto:roma.luo@outlook.com"
+                      className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
+                      title="Email: roma.luo@outlook.com"
+                    >
+                      <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
+                        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs text-gray-400">Email</span>
+                    </a>
+
+                    <a
+                      href="https://www.linkedin.com/in/roma-luo-519b73274/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
+                      title="LinkedIn Profile"
+                    >
+                      <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
+                        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs text-gray-400">LinkedIn</span>
+                    </a>
+                  </div>
+                </div>
+              ) : win.type === 'awards' ? (
+                <div className="p-4 space-y-3">
+                  <div>
+                    <h2 className="text-xl font-bold mb-3">Awards & Recognition</h2>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="border-l-2 border-white/30 pl-3 py-1">
+                      <div className="font-semibold">Light-Weight Structure Association Australasia Competition 2025</div>
+                      <div className="text-gray-400 text-xs">2025</div>
+                    </div>
+
+                    <div className="border-l-2 border-white/30 pl-3 py-1">
+                      <div className="font-semibold">Lemon Grasui Graduate Exhibition Award</div>
+                      <div className="text-gray-400 text-xs">2025</div>
+                    </div>
+
+                    <div className="border-l-2 border-white/30 pl-3 py-1">
+                      <div className="font-semibold">Best Undergraduate Thesis Award</div>
+                      <div className="text-gray-400 text-xs">2023</div>
+                    </div>
+                  </div>
+                </div>
+              ) : win.type === 'experience' ? (
+                <div className="p-5 space-y-5 h-full overflow-y-auto custom-scrollbar">
+                  <style jsx>{`
+                    .custom-scrollbar::-webkit-scrollbar {
+                      width: 6px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                      background: rgba(255, 255, 255, 0.05);
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                      background-color: rgba(255, 255, 255, 0.2);
+                      border-radius: 3px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                      background-color: rgba(255, 255, 255, 0.3);
+                    }
+                  `}</style>
+
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Professional Experience</h2>
+                    <p className="text-xs text-gray-400">Career History & Roles</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {experienceData.map((job, i) => (
+                      <div key={i} className="relative pl-4 border-l border-white/20">
+                        <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#1E1E1E] border border-white/40"></div>
+
+                        <div className="mb-1">
+                          <h3 className="font-bold text-sm">{job.role}</h3>
+                          <div className="flex justify-between items-baseline">
+                            <span className="text-xs text-blue-300 font-medium">{job.company}</span>
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">{job.period}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-gray-300 leading-relaxed font-light">
+                          {job.description}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : win.type === 'location' ? (
+                <LocationWindowContent />
+              ) : (
+                <ProjectWindowContent
+                  win={win}
+                  onImageClick={(media, index, alt) => setLightboxMedia({ media, currentIndex: index, alt })}
+                />
+              )}
+            </DraggableWindow>
+          ))}
+        </div>
+      </div>
 
-                {/* Right side: Profile photo */}
-                <div className="shrink-0">
-                  <img
-                    src="/images/profile/roma.jpg"
-                    alt="Roma Luo"
-                    className="w-32 h-32 object-cover border-2 border-white/20"
-                  />
-                </div>
-              </div>
-            ) : win.type === 'contact' ? (
-              <div className="p-4 space-y-3">
-                <div>
-                  <h2 className="text-xl font-bold mb-3">Get in Touch</h2>
-                  <p className="text-gray-300 text-xs mb-4 font-light">
-                    Feel free to reach out for collaborations, opportunities, or just to connect.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-6 justify-center">
-                  <a
-                    href="mailto:roma.luo@outlook.com"
-                    className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
-                    title="Email: roma.luo@outlook.com"
-                  >
-                    <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
-                      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
-                      </svg>
-                    </div>
-                    <span className="text-xs text-gray-400">Email</span>
-                  </a>
-
-                  <a
-                    href="https://www.linkedin.com/in/roma-luo-519b73274/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
-                    title="LinkedIn Profile"
-                  >
-                    <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
-                      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
-                      </svg>
-                    </div>
-                    <span className="text-xs text-gray-400">LinkedIn</span>
-                  </a>
-                </div>
-              </div>
-            ) : win.type === 'awards' ? (
-              <div className="p-4 space-y-3">
-                <div>
-                  <h2 className="text-xl font-bold mb-3">Awards & Recognition</h2>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="border-l-2 border-white/30 pl-3 py-1">
-                    <div className="font-semibold">Light-Weight Structure Association Australasia Competition 2025</div>
-                    <div className="text-gray-400 text-xs">2025</div>
-                  </div>
-
-                  <div className="border-l-2 border-white/30 pl-3 py-1">
-                    <div className="font-semibold">Lemon Grasui Graduate Exhibition Award</div>
-                    <div className="text-gray-400 text-xs">2025</div>
-                  </div>
-
-                  <div className="border-l-2 border-white/30 pl-3 py-1">
-                    <div className="font-semibold">Best Undergraduate Thesis Award</div>
-                    <div className="text-gray-400 text-xs">2023</div>
-                  </div>
-                </div>
-              </div>
-            ) : win.type === 'experience' ? (
-              <div className="p-5 space-y-5 h-full overflow-y-auto custom-scrollbar">
-                <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                  width: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                  background: rgba(255, 255, 255, 0.05);
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                  background-color: rgba(255, 255, 255, 0.2);
-                  border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                  background-color: rgba(255, 255, 255, 0.3);
-                }
-              `}</style>
-
-                <div>
-                  <h2 className="text-xl font-bold mb-1">Professional Experience</h2>
-                  <p className="text-xs text-gray-400">Career History & Roles</p>
-                </div>
-
-                <div className="space-y-6">
-                  {experienceData.map((job, i) => (
-                    <div key={i} className="relative pl-4 border-l border-white/20">
-                      <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#1E1E1E] border border-white/40"></div>
-
-                      <div className="mb-1">
-                        <h3 className="font-bold text-sm">{job.role}</h3>
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-xs text-blue-300 font-medium">{job.company}</span>
-                          <span className="text-[10px] text-gray-500 uppercase tracking-wider">{job.period}</span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-gray-300 leading-relaxed font-light">
-                        {job.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : win.type === 'location' ? (
-              <LocationWindowContent />
-            ) : (
-              <ProjectWindowContent
-                win={win}
-                onImageClick={(media, index, alt) => setLightboxMedia({ media, currentIndex: index, alt })}
-              />
-            )}
-          </DraggableWindow>
-        ))}
-
-        <Lightbox
-          isOpen={!!lightboxMedia}
-          media={lightboxMedia?.media || []}
-          currentIndex={lightboxMedia?.currentIndex || 0}
-          alt={lightboxMedia?.alt || ''}
-          onClose={() => setLightboxMedia(null)}
-        />
-      </motion.div>
-    </div>
+      <Lightbox
+        isOpen={!!lightboxMedia}
+        media={lightboxMedia?.media || []}
+        currentIndex={lightboxMedia?.currentIndex || 0}
+        alt={lightboxMedia?.alt || ''}
+        onClose={() => setLightboxMedia(null)}
+      />
+    </motion.div>
   );
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState, memo } from 'react';
+import React, { useRef, useEffect, useState, memo, useMemo } from 'react';
 import Draggable from 'react-draggable';
 import { X, Minus } from 'lucide-react';
 import { WindowState } from '@/types';
@@ -13,6 +13,8 @@ interface DraggableWindowProps {
   onToggleExpand: (id: string, isExpanded: boolean) => void;
   onMove?: (id: string, position: { x: number; y: number }) => void;
   children: React.ReactNode;
+  scale?: number;
+  boundaryRect?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 const DraggableWindow = memo(function DraggableWindow({
@@ -23,6 +25,8 @@ const DraggableWindow = memo(function DraggableWindow({
   onToggleExpand,
   onMove,
   children,
+  scale = 1,
+  boundaryRect,
 }: DraggableWindowProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -63,11 +67,26 @@ const DraggableWindow = memo(function DraggableWindow({
     }
   };
 
+  const bounds = useMemo(() => {
+    if (!boundaryRect) return 'parent';
+
+    // Calculate bounds relative to the window's current size
+    // Draggable bounds are: {left, top, right, bottom}
+    // right/bottom are the maximum x/y values for the top-left corner
+    return {
+      left: boundaryRect.minX,
+      top: boundaryRect.minY,
+      right: boundaryRect.maxX - width,
+      bottom: boundaryRect.maxY - (typeof height === 'number' ? height : 600), // Fallback if auto
+    };
+  }, [boundaryRect, width, height]);
+
   return (
     <Draggable
       handle=".window-header"
       position={currentPosition}
       nodeRef={nodeRef}
+      scale={scale}
       onStart={() => {
         onFocus(windowState.id);
         setIsDragging(true);
@@ -79,7 +98,7 @@ const DraggableWindow = memo(function DraggableWindow({
         setTimeout(() => setIsDragging(false), 50);
         onMove?.(windowState.id, { x: data.x, y: data.y });
       }}
-      bounds="parent"
+      bounds={bounds}
     >
       <div
         ref={nodeRef}
