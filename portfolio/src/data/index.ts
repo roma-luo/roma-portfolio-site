@@ -186,7 +186,7 @@ export const experienceData = [
   {
     role: 'Architectural Designer',
     company: 'junya.ishigami+associates',
-    period: '2025.06 - Present',
+    period: '2025.11 - Present',
     description: 'Project Manager for large-scale international projects.'
   },
   {
