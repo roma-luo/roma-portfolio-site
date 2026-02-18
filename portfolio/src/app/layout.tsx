@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+// 1. 在这里导入 Analytics 组件
+import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
   title: "rluo.",
@@ -18,6 +20,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased h-screen w-screen">
         {children}
+        {/* 2. 在这里添加 Analytics 组件 */}
+        <Analytics />
       </body>
     </html>
   );
