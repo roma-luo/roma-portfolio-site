@@ -35,7 +35,7 @@ export default function LocationWindowContent() {
             {LOCATIONS.map((loc) => (
                 <div
                     key={loc.id}
-                    className="absolute w-3 h-3 bg-white shadow-sm cursor-help transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform duration-200 z-10"
+                    className={`absolute w-3 h-3 bg-white shadow-sm cursor-help transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform duration-200 ${hoveredId === loc.id ? 'z-50' : 'z-10'}`}
                     style={{ left: `${loc.x}%`, top: `${loc.y}%` }}
                     onMouseEnter={() => setHoveredId(loc.id)}
                     onMouseLeave={() => setHoveredId(null)}

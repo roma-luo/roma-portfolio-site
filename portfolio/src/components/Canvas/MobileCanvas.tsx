@@ -299,6 +299,7 @@ function MobileProjectCard({ project, onClick }: { project: any; onClick: () => 
                         loop
                         muted
                         playsInline
+                        preload="auto"
                     />
                 ) : (
                     <img
@@ -376,9 +377,13 @@ function ProjectDetailModal({ projectId, onClose }: { projectId: string; onClose
                                 {isVideo ? (
                                     <video
                                         src={currentMedia}
+                                        autoPlay
+                                        muted
+                                        loop
                                         controls
                                         className="max-w-full max-h-full"
                                         playsInline
+                                        preload="auto"
                                     />
                                 ) : (
                                     <img

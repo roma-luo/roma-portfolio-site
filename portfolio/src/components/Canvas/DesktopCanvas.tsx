@@ -343,7 +343,7 @@ export default function DesktopCanvas() {
             </h2>
           </div>
 
-          {windows.map((win) => (
+          {windows.filter(w => w.isOpen).map((win) => (
             <DraggableWindow
               key={win.id}
               windowState={win}
@@ -574,6 +574,7 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
                 loop
                 muted
                 playsInline
+                preload="auto"
               />
             ) : (
               <img
@@ -613,9 +614,13 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
                 {isVideoExpanded ? (
                   <video
                     src={currentMedia}
+                    autoPlay
+                    muted
+                    loop
                     controls
                     className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity"
                     playsInline
+                    preload="auto"
                     onClick={() => onImageClick?.(media, currentIndex, project.title)}
                     title="Click to expand"
                   />

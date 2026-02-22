@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const VIDEO_URLS = [
+  '/images/projects/p1-1.mp4',
+  '/images/projects/p3-1.mp4',
+  '/images/projects/p3-4.mp4',
+];
+
+const MAX_LOADING_TIME = 6000; // Max wait time in ms
+
 interface LoadingScreenProps {
   onLoadingComplete: () => void;
 }
@@ -11,10 +19,31 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Simulate loading time
-    const timer = setTimeout(() => {
+    let didFinish = false;
+
+    const finish = () => {
+      if (didFinish) return;
+      didFinish = true;
       setIsVisible(false);
-    }, 2000);
+    };
+
+    // Preload all videos via fetch (puts them in browser cache)
+    const preloadPromises = VIDEO_URLS.map((url) =>
+      fetch(url)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+          return res.blob(); // Read the full body to ensure it's cached
+        })
+        .catch((err) => {
+          console.warn('Video preload failed:', err);
+        })
+    );
+
+    // Wait for all videos to load, then dismiss
+    Promise.all(preloadPromises).then(finish);
+
+    // Safety timeout: never wait longer than MAX_LOADING_TIME
+    const timer = setTimeout(finish, MAX_LOADING_TIME);
 
     return () => clearTimeout(timer);
   }, []);
@@ -50,5 +79,3 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
     </AnimatePresence>
   );
 }
-
-

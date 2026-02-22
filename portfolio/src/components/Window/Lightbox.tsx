@@ -129,6 +129,7 @@ export default function Lightbox({ media, currentIndex: initialIndex, isOpen, on
                                     src={currentSrc}
                                     controls
                                     autoPlay
+                                    preload="auto"
                                     className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
                                 />
                             ) : (

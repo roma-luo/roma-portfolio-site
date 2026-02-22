@@ -18,6 +18,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Preload video files for faster initial playback */}
+        <link rel="preload" href="/images/projects/p1-1.mp4" as="video" type="video/mp4" />
+        <link rel="preload" href="/images/projects/p3-1.mp4" as="video" type="video/mp4" />
+        <link rel="preload" href="/images/projects/p3-4.mp4" as="video" type="video/mp4" />
+      </head>
       <body className="antialiased h-screen w-screen">
         {children}
         {/* 2. 在这里添加 Analytics 组件 */}
