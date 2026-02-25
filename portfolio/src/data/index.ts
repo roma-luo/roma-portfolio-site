@@ -154,6 +154,34 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   }
 ];
 
+export interface MiniWindowConfig {
+  id: string;
+  parentProjectId: string;
+  mediaSrc: string;
+  title: string;
+}
+
+export const miniWindows: MiniWindowConfig[] = [
+  {
+    id: 'mini-p3-1',
+    parentProjectId: 'p3',
+    mediaSrc: '/images/projects/p3-extra-1.mp4',
+    title: 'agent simulation',
+  },
+  {
+    id: 'mini-p2-1',
+    parentProjectId: 'p2',
+    mediaSrc: '/images/projects/p2-extra-1.mp4',
+    title: 'start & stop printing',
+  },
+  {
+    id: 'mini-p1-1',
+    parentProjectId: 'p1',
+    mediaSrc: '/images/projects/p1-extra-1.mp4',
+    title: 'web interaction',
+  },
+];
+
 export const profileData = {
   name: 'Roma(Ma) Luo',
   title: 'Architectural / Computational Designer',

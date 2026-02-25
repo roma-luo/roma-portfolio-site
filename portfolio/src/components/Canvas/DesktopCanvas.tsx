@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DraggableWindow from '../Window/DraggableWindow';
 import LocationWindowContent from '../Window/LocationWindowContent';
 import Lightbox from '../Window/Lightbox';
 import { WindowState } from '@/types';
-import { projects, profileData, experienceData, getProjectMedia } from '@/data';
+import { projects, profileData, experienceData, getProjectMedia, miniWindows } from '@/data';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DesktopCanvas() {
@@ -115,13 +115,96 @@ export default function DesktopCanvas() {
         projectId: p.id,
       };
     }),
+    // Mini windows — below Architectural Design, spreading horizontally
+    // Arch design: row0=y720, row1=y980. Gap between groups = 340.
+    // Mini windows start at y = 980 + 340 = 1320
+    ...miniWindows.map((mw, i) => {
+      const x = 650 + i * 340;
+      const y = 1320;
+
+      return {
+        id: mw.id,
+        title: mw.title,
+        isOpen: true,
+        isMinimized: false,
+        isMaximized: false,
+        isExpanded: false,
+        zIndex: projects.length + i + 1,
+        position: { x, y },
+        size: { width: 320, height: 240 },
+        type: 'miniWindow' as const,
+        parentProjectId: mw.parentProjectId,
+        mediaSrc: mw.mediaSrc,
+      };
+    }),
   ], []);
 
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
   const [lightboxMedia, setLightboxMedia] = useState<{ media: string[]; currentIndex: number; alt: string } | null>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [scale, setScale] = useState(1);
   const [boundaryRect, setBoundaryRect] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | undefined>(undefined);
+
+  // Keep a stable ref to windows so the global click-outside handler never stales
+  const windowsRef = useRef<WindowState[]>(INITIAL_WINDOWS);
+  windowsRef.current = windows;
+  const lightboxRef = useRef(lightboxMedia);
+  lightboxRef.current = lightboxMedia;
+
+  // Global click-outside handler — replaces per-window handlers.
+  // Uses data-window-id attributes to identify clicked window,
+  // then collapses a linked group only if click lands OUTSIDE all members.
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (lightboxRef.current) return; // Lightbox is open — don't collapse anything
+
+      const target = event.target as Element;
+      const clickedWindowId = target.closest('[data-window-id]')?.getAttribute('data-window-id') ?? null;
+
+      const wins = windowsRef.current;
+      const expanded = wins.filter(w => w.isOpen && w.isExpanded);
+      if (expanded.length === 0) return;
+
+      // Build linked groups keyed by project window ID
+      // Each group: projectId → Set<windowId> of all members (project + mini siblings)
+      const groups = new Map<string, Set<string>>();
+      expanded.forEach((w: WindowState) => {
+        const groupKey = w.type === 'project' ? w.id
+          : w.type === 'miniWindow' && w.parentProjectId ? `project-${w.parentProjectId}`
+            : w.id;
+        if (!groups.has(groupKey)) groups.set(groupKey, new Set());
+        groups.get(groupKey)!.add(w.id);
+        // Ensure the parent project is also considered part of the group
+        if (w.type === 'miniWindow' && w.parentProjectId) {
+          groups.get(groupKey)!.add(`project-${w.parentProjectId}`);
+        }
+      });
+
+      // Collapse any group whose click is OUTSIDE all its members
+      groups.forEach((memberIds) => {
+        const clickedInsideGroup = clickedWindowId !== null && memberIds.has(clickedWindowId);
+        if (!clickedInsideGroup) {
+          const representativeId = [...memberIds][0];
+          if (representativeId) {
+            setWindows(prev => {
+              const win = prev.find(w => w.id === representativeId);
+              if (!win || !win.isExpanded) return prev;
+              // Collapse all members of the group
+              return prev.map((w: WindowState) => {
+                if (!memberIds.has(w.id) || !w.isExpanded) return w;
+                const restoredPosition = w.preExpandPosition ?? w.position;
+                return { ...w, isExpanded: false, position: restoredPosition, preExpandPosition: undefined };
+              });
+            });
+          }
+        }
+      });
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []); // stable: reads from refs, no deps needed
+
+
 
   // Responsive Scaling Logic
   useEffect(() => {
@@ -215,79 +298,98 @@ export default function DesktopCanvas() {
     );
   }, []);
 
-  const handleToggleExpand = useCallback((id: string, isExpanded: boolean) => {
-    // Temporarily disable overflow to prevent scrollbar flash
-    setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 550); // Slightly longer than animation duration
+  // Helper to compute smart expansion position
+  const computeExpandPosition = useCallback((w: WindowState, expandedWidth: number, expandedHeight: number) => {
+    const PADDING = 20;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const BASE_WIDTH = 2300;
+    const MAX_WIDTH = 1920;
+    const targetWidth = Math.min(width, MAX_WIDTH);
+    const currentScale = targetWidth / BASE_WIDTH;
 
-    setWindows(prev => prev.map(w => {
-      if (w.id === id) {
-        const maxZ = Math.max(...prev.map(win => win.zIndex));
-        let newPosition = w.position;
+    const visibleWidthScaled = width / currentScale;
+    const visibleHeightScaled = height / currentScale;
+    const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
 
-        if (isExpanded) {
-          // Smart expansion: Check boundaries
-          const EXPANDED_WIDTH = 800;
-          const EXPANDED_HEIGHT = 600;
-          const PADDING = 20;
+    const minX = -offsetX;
+    const maxX = BASE_WIDTH + offsetX;
+    const minY = 0;
+    const maxY = visibleHeightScaled;
 
-          // Use calculated boundaryRect if available, otherwise fallback
-          // We need to access the current boundaryRect here. 
-          // Since we are inside a callback, we can't easily access the state unless we include it in deps
-          // or use a ref. For simplicity, let's just recalculate or use a safe default.
-          // Actually, we can just use the window dimensions to approximate if needed, 
-          // but better to use the state if we add it to dependency.
-          // However, adding boundaryRect to dependency might cause re-creation of callback on resize.
-          // Let's use window.innerWidth/Height and scale to recalculate on the fly for accuracy.
+    let x = w.position.x;
+    let y = w.position.y;
 
-          const width = window.innerWidth;
-          const height = window.innerHeight;
-          const BASE_WIDTH = 2300;
-          const MAX_WIDTH = 1920;
-          const targetWidth = Math.min(width, MAX_WIDTH);
-          const currentScale = targetWidth / BASE_WIDTH;
+    if (x + expandedWidth > maxX - PADDING) {
+      x = Math.max(minX + PADDING, maxX - expandedWidth - PADDING);
+    }
+    if (y + expandedHeight > maxY - PADDING) {
+      y = Math.max(minY + PADDING, maxY - expandedHeight - PADDING);
+    }
+    if (x < minX + PADDING) x = minX + PADDING;
+    if (y < minY + PADDING) y = minY + PADDING;
 
-          const visibleWidthScaled = width / currentScale;
-          const visibleHeightScaled = height / currentScale;
-          const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
-
-          const minX = -offsetX;
-          const maxX = BASE_WIDTH + offsetX;
-          const minY = 0;
-          const maxY = visibleHeightScaled;
-
-          let x = w.position.x;
-          let y = w.position.y;
-
-          // Check right edge
-          if (x + EXPANDED_WIDTH > maxX - PADDING) {
-            x = Math.max(minX + PADDING, maxX - EXPANDED_WIDTH - PADDING);
-          }
-
-          // Check bottom edge
-          if (y + EXPANDED_HEIGHT > maxY - PADDING) {
-            y = Math.max(minY + PADDING, maxY - EXPANDED_HEIGHT - PADDING);
-          }
-
-          // Check left edge
-          if (x < minX + PADDING) x = minX + PADDING;
-
-          // Check top edge
-          if (y < minY + PADDING) y = minY + PADDING;
-
-          newPosition = { x, y };
-        }
-
-        return {
-          ...w,
-          isExpanded,
-          zIndex: isExpanded ? maxZ + 1 : w.zIndex,
-          position: newPosition
-        };
-      }
-      return w;
-    }));
+    return { x, y };
   }, []);
+
+  const handleToggleExpand = useCallback((id: string, isExpanded: boolean) => {
+    // Helper: expand a single window in-place
+    const expandOne = (prev: WindowState[], targetId: string): WindowState[] => {
+      const maxZ = Math.max(...prev.map(w => w.zIndex));
+      return prev.map(w => {
+        if (w.id !== targetId) return w;
+        const newPosition = computeExpandPosition(w, 800, 600);
+        return { ...w, isExpanded: true, zIndex: maxZ + 1, preExpandPosition: w.position, position: newPosition };
+      });
+    };
+
+
+    setWindows(prev => {
+      const targetWindow = prev.find(w => w.id === id);
+      if (!targetWindow) return prev;
+
+      const maxZ = Math.max(...prev.map(win => win.zIndex));
+
+      if (targetWindow.type === 'miniWindow' && targetWindow.parentProjectId && isExpanded) {
+        // ── Sequential expand (step 1): open parent project only ──
+        // The mini window itself opens after a delay (see setTimeout below).
+        const parentId = `project-${targetWindow.parentProjectId}`;
+        return expandOne(prev, parentId);
+      }
+
+      // ── All other cases: build linked set, expand/collapse simultaneously ──
+      const linkedIds = new Set<string>([id]);
+      if (targetWindow.type === 'miniWindow' && targetWindow.parentProjectId) {
+        linkedIds.add(`project-${targetWindow.parentProjectId}`);
+        prev.forEach(w => {
+          if (w.type === 'miniWindow' && w.parentProjectId === targetWindow.parentProjectId)
+            linkedIds.add(w.id);
+        });
+      } else if (targetWindow.type === 'project' && targetWindow.projectId) {
+        prev.forEach(w => {
+          if (w.type === 'miniWindow' && w.parentProjectId === targetWindow.projectId)
+            linkedIds.add(w.id);
+        });
+      }
+
+      return prev.map(w => {
+        if (!linkedIds.has(w.id)) return w;
+        if (isExpanded) {
+          const newPosition = computeExpandPosition(w, 800, 600);
+          return { ...w, isExpanded: true, zIndex: maxZ + 1, preExpandPosition: w.position, position: newPosition };
+        } else {
+          const restoredPosition = w.preExpandPosition ?? w.position;
+          return { ...w, isExpanded: false, position: restoredPosition, preExpandPosition: undefined };
+        }
+      });
+    });
+
+    // ── Sequential expand (step 2): 350ms after parent opens, expand the mini window ──
+    if (isExpanded && id.startsWith('mini-')) {
+      setTimeout(() => setWindows(prev => expandOne(prev, id)), 350);
+    }
+  }, [computeExpandPosition]);
+
 
   return (
     <motion.div
@@ -306,7 +408,7 @@ export default function DesktopCanvas() {
 
       {/* Centered Scaled Container */}
       <div
-        className={`w-full h-full flex justify-center ${isAnimating ? 'overflow-hidden' : 'overflow-auto'}`}
+        className="w-full h-full flex justify-center overflow-hidden"
         style={{
           // Ensure the scrollbar appears if the scaled content is taller than screen
           alignItems: 'flex-start'
@@ -317,7 +419,7 @@ export default function DesktopCanvas() {
           style={{
             width: 2300, // BASE_WIDTH
             height: '100%', // Allow it to grow
-            minHeight: 1200,
+            minHeight: 1800,
             transform: `scale(${scale})`,
             // When scaling down, the element takes less space visually but keeps layout space?
             // No, in flexbox, if we don't adjust width/height, it might be weird.
@@ -510,6 +612,11 @@ export default function DesktopCanvas() {
                 </div>
               ) : win.type === 'location' ? (
                 <LocationWindowContent />
+              ) : win.type === 'miniWindow' ? (
+                <MiniWindowContent
+                  win={win}
+                  onImageClick={(media, index, alt) => setLightboxMedia({ media, currentIndex: index, alt })}
+                />
               ) : (
                 <ProjectWindowContent
                   win={win}
@@ -713,6 +820,72 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
               <p className="font-light">{project.content?.description}</p>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mini window content: shows a single media file only
+function MiniWindowContent({ win, onImageClick }: { win: WindowState; onImageClick?: (media: string[], index: number, alt: string) => void }) {
+  const mediaSrc = win.mediaSrc || '';
+  const isVideo = mediaSrc.endsWith('.mp4');
+
+  if (!mediaSrc) return <div className="p-4">No media</div>;
+
+  return (
+    <div className="h-full flex flex-col">
+      {!win.isExpanded ? (
+        // Collapsed: compact media preview
+        <div className="relative w-full h-full">
+          {isVideo ? (
+            <video
+              src={mediaSrc}
+              className="w-full h-full object-cover pointer-events-none"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+            />
+          ) : (
+            <img
+              src={mediaSrc}
+              alt={win.title}
+              className="w-full h-full object-cover pointer-events-none"
+              loading="lazy"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none flex items-end p-3">
+            <h3 className="text-white font-bold text-xs drop-shadow-md truncate">{win.title}</h3>
+          </div>
+        </div>
+      ) : (
+        // Expanded: full media only, no project details
+        <div className="h-full bg-black flex items-center justify-center">
+          {isVideo ? (
+            <video
+              src={mediaSrc}
+              autoPlay
+              muted
+              loop
+              controls
+              className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity"
+              playsInline
+              preload="auto"
+              onClick={() => onImageClick?.([mediaSrc], 0, win.title)}
+              title="Click to expand"
+            />
+          ) : (
+            <img
+              src={mediaSrc}
+              alt={win.title}
+              className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+              loading="lazy"
+              onClick={() => onImageClick?.([mediaSrc], 0, win.title)}
+              title="Click to expand"
+            />
+          )}
         </div>
       )}
     </div>

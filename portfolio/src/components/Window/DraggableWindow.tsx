@@ -32,25 +32,40 @@ const DraggableWindow = memo(function DraggableWindow({
   const [isDragging, setIsDragging] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(windowState.position);
 
-  // Sync position when windowState changes (e.g. smart expansion shift)
+  // Single effect: detect expand/collapse transitions AND sync position.
+  // By handling both in one effect, React batches setIsExpanding + setCurrentPosition
+  // into the same render — so the CSS transition is active BEFORE the transform moves.
+  const prevExpandedRef = useRef(windowState.isExpanded);
+  const prevPositionRef = useRef(windowState.position);
+  const [isCollapsing, setIsCollapsing] = useState(false);
+  const [isExpanding, setIsExpanding] = useState(false);
+
   useEffect(() => {
+    const wasExpanded = prevExpandedRef.current;
+    const nowExpanded = windowState.isExpanded;
+    prevExpandedRef.current = nowExpanded;
+    prevPositionRef.current = windowState.position;
+
+    if (!wasExpanded && nowExpanded) {
+      // false → true: expanding — enable transform transition, then sync position
+      setIsExpanding(true);
+      setCurrentPosition(windowState.position);
+      const t = setTimeout(() => setIsExpanding(false), 510);
+      return () => clearTimeout(t);
+    }
+    if (wasExpanded && !nowExpanded) {
+      // true → false: collapsing — enable transform transition, then sync position
+      setIsCollapsing(true);
+      setCurrentPosition(windowState.position);
+      const t = setTimeout(() => setIsCollapsing(false), 510);
+      return () => clearTimeout(t);
+    }
+    // Dragged or repositioned without expand/collapse change — sync position immediately
     setCurrentPosition(windowState.position);
-  }, [windowState.position]);
+  }, [windowState.position, windowState.isExpanded]);
 
-  useEffect(() => {
-    if (!windowState.isOpen || !windowState.isExpanded) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (nodeRef.current && !nodeRef.current.contains(event.target as Node)) {
-        onToggleExpand(windowState.id, false);
-      }
-    };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [windowState.isExpanded, windowState.id, windowState.isOpen, onToggleExpand]);
 
   // Dimensions based on expanded state
   const width = windowState.isExpanded ? 800 : (windowState.size?.width || 400);
@@ -62,7 +77,7 @@ const DraggableWindow = memo(function DraggableWindow({
     if (isDragging) return;
 
     onFocus(windowState.id);
-    if (!windowState.isExpanded && !windowState.isMinimized && windowState.type === 'project') {
+    if (!windowState.isExpanded && !windowState.isMinimized && (windowState.type === 'project' || windowState.type === 'miniWindow')) {
       onToggleExpand(windowState.id, true);
     }
   };
@@ -102,9 +117,15 @@ const DraggableWindow = memo(function DraggableWindow({
     >
       <div
         ref={nodeRef}
+        data-window-id={windowState.id}
         className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform
           ${windowState.isMinimized ? 'h-10 overflow-hidden' : ''}
-          ${!isDragging ? 'transition-[width,height,transform] duration-500 ease-out' : ''}
+          ${!isDragging
+            ? (isExpanding || isCollapsing)
+              ? 'transition-[width,height,transform] duration-500 ease-out'
+              : 'transition-[width,height] duration-500 ease-out'
+            : ''
+          }
         `}
         style={{
           zIndex: windowState.zIndex,
