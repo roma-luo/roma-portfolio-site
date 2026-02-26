@@ -13,13 +13,13 @@ export default function DesktopCanvas() {
   const INITIAL_WINDOWS: WindowState[] = useMemo(() => [
     {
       id: 'profile',
-      title: 'Profile - Roma Luo',
+      title: 'Profile',
       isOpen: true,
       isMinimized: false,
       isMaximized: false,
       isExpanded: false,
       zIndex: 10,
-      position: { x: 100, y: 100 },
+      position: { x: 20, y: 100 },
       size: { width: 480, height: 690 },
       type: 'profile',
     },
@@ -31,7 +31,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 13,
-      position: { x: 100, y: 810 },
+      position: { x: 20, y: 810 },
       size: { width: 280, height: 310 },
       type: 'awards',
     },
@@ -43,7 +43,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 12,
-      position: { x: 100, y: 860 },
+      position: { x: 20, y: 860 },
       size: { width: 280, height: 250 },
       type: 'contact',
     },
@@ -55,7 +55,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 11,
-      position: { x: 100, y: 910 },
+      position: { x: 20, y: 910 },
       size: { width: 280, height: 400 },
       type: 'experience',
     },
@@ -434,13 +434,13 @@ export default function DesktopCanvas() {
 
           {/* Category Labels (Folder Headers) */}
           <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
+            <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
               Research /<br />Computation
             </h2>
           </div>
 
           <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-light uppercase tracking-tighter">
+            <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
               Architectural<br />Design
             </h2>
           </div>
@@ -697,12 +697,7 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
             </div>
           )}
 
-          <div className="absolute inset-0 bg-black/20 hover:bg-black/0 transition-colors flex items-end p-4 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none">
-            <div>
-              <h3 className="text-white font-bold text-lg drop-shadow-md">{project.title}</h3>
-              <p className="text-gray-200 text-xs line-clamp-1 drop-shadow-md font-light">{project.shortDescription}</p>
-            </div>
-          </div>
+
         </div>
       ) : (
         // Expanded State: Vertical layout (top: image, bottom: details)
@@ -856,9 +851,7 @@ function MiniWindowContent({ win, onImageClick }: { win: WindowState; onImageCli
               loading="lazy"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none flex items-end p-3">
-            <h3 className="text-white font-bold text-xs drop-shadow-md truncate">{win.title}</h3>
-          </div>
+
         </div>
       ) : (
         // Expanded: full media only, no project details
