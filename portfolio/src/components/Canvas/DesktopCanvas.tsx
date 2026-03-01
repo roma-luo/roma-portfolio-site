@@ -6,8 +6,19 @@ import DraggableWindow from '../Window/DraggableWindow';
 import LocationWindowContent from '../Window/LocationWindowContent';
 import Lightbox from '../Window/Lightbox';
 import { WindowState } from '@/types';
-import { projects, profileData, experienceData, getProjectMedia, miniWindows } from '@/data';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { projects, profileData, experienceData, getProjectMedia, getProjectSections, miniWindows } from '@/data';
+import { X } from 'lucide-react';
+
+// Temporal popup spawned when a section tab is clicked
+interface TemporalPopup {
+  id: string;
+  mediaSrc: string;
+  offsetIndex: number; // for stagger delay
+  ownerWindowId: string;
+  x: number;
+  y: number;
+  zIndex: number; // managed so last-dragged stays on top
+}
 
 export default function DesktopCanvas() {
   const INITIAL_WINDOWS: WindowState[] = useMemo(() => [
@@ -15,11 +26,11 @@ export default function DesktopCanvas() {
       id: 'profile',
       title: 'Profile',
       isOpen: true,
-      isMinimized: false,
+      isMinimized: true,
       isMaximized: false,
       isExpanded: false,
       zIndex: 10,
-      position: { x: 20, y: 100 },
+      position: { x: 20, y: 120 },
       size: { width: 480, height: 690 },
       type: 'profile',
     },
@@ -31,7 +42,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 13,
-      position: { x: 20, y: 810 },
+      position: { x: 20, y: 290 },
       size: { width: 280, height: 310 },
       type: 'awards',
     },
@@ -43,7 +54,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 12,
-      position: { x: 20, y: 860 },
+      position: { x: 20, y: 360 },
       size: { width: 280, height: 250 },
       type: 'contact',
     },
@@ -55,7 +66,7 @@ export default function DesktopCanvas() {
       isMaximized: false,
       isExpanded: false,
       zIndex: 11,
-      position: { x: 20, y: 910 },
+      position: { x: 20, y: 430 },
       size: { width: 280, height: 400 },
       type: 'experience',
     },
@@ -72,35 +83,19 @@ export default function DesktopCanvas() {
       type: 'location',
     },
     ...projects.map((p, i) => {
-      // Determine category based on index (as per instruction)
-      // p1-p5 (indices 0-4) -> research/computation
-      // p6-p10 (indices 5-9) -> architectural design
-
       let x, y;
-
-      // Layout logic: 
-      // Research Group: Top Right area
-      // Design Group: Bottom Right area
-      // Stacked/Grid feel like a folder content
-
       if (i < 5) {
-        // Research/Computation Group
-        // Start at x=650, y=100
-        // Layout: 3 in first row, 2 in second row for compact "folder" look
         const row = Math.floor(i / 3);
         const col = i % 3;
         x = 650 + col * 340;
         y = 120 + row * 260;
       } else {
-        // Architectural Design Group
-        // Start at x=650, y=700 (pushed down)
         const idx = i - 5;
         const row = Math.floor(idx / 3);
         const col = idx % 3;
         x = 650 + col * 340;
         y = 720 + row * 260;
       }
-
       return {
         id: `project-${p.id}`,
         title: p.title,
@@ -115,13 +110,9 @@ export default function DesktopCanvas() {
         projectId: p.id,
       };
     }),
-    // Mini windows — below Architectural Design, spreading horizontally
-    // Arch design: row0=y720, row1=y980. Gap between groups = 340.
-    // Mini windows start at y = 980 + 340 = 1320
     ...miniWindows.map((mw, i) => {
       const x = 650 + i * 340;
       const y = 1320;
-
       return {
         id: mw.id,
         title: mw.title,
@@ -143,29 +134,36 @@ export default function DesktopCanvas() {
   const [lightboxMedia, setLightboxMedia] = useState<{ media: string[]; currentIndex: number; alt: string } | null>(null);
   const [scale, setScale] = useState(1);
   const [boundaryRect, setBoundaryRect] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | undefined>(undefined);
+  const [temporalPopups, setTemporalPopups] = useState<TemporalPopup[]>([]);
+  const [projectInfoOverlay, setProjectInfoOverlay] = useState<string | null>(null);
 
-  // Keep a stable ref to windows so the global click-outside handler never stales
   const windowsRef = useRef<WindowState[]>(INITIAL_WINDOWS);
   windowsRef.current = windows;
   const lightboxRef = useRef(lightboxMedia);
   lightboxRef.current = lightboxMedia;
+  // Ref so onSectionClick (passed as inline prop) never stales on popup count
+  const temporalPopupsRef = useRef<TemporalPopup[]>([]);
+  temporalPopupsRef.current = temporalPopups;
+  const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // IDs of windows we minimized when a section tab was clicked — restored on collapse
+  const [sectionMinimizedIds, setSectionMinimizedIds] = useState<string[]>([]);
+  const sectionMinimizedIdsRef = useRef<string[]>([]);
+  sectionMinimizedIdsRef.current = sectionMinimizedIds;
 
-  // Global click-outside handler — replaces per-window handlers.
-  // Uses data-window-id attributes to identify clicked window,
-  // then collapses a linked group only if click lands OUTSIDE all members.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (lightboxRef.current) return; // Lightbox is open — don't collapse anything
+      if (lightboxRef.current) return;
 
       const target = event.target as Element;
+      if (target.closest('[data-temporal-popup]')) return;
+      if (target.closest('[data-project-info-overlay]')) return;
+
       const clickedWindowId = target.closest('[data-window-id]')?.getAttribute('data-window-id') ?? null;
 
       const wins = windowsRef.current;
       const expanded = wins.filter(w => w.isOpen && w.isExpanded);
       if (expanded.length === 0) return;
 
-      // Build linked groups keyed by project window ID
-      // Each group: projectId → Set<windowId> of all members (project + mini siblings)
       const groups = new Map<string, Set<string>>();
       expanded.forEach((w: WindowState) => {
         const groupKey = w.type === 'project' ? w.id
@@ -173,13 +171,11 @@ export default function DesktopCanvas() {
             : w.id;
         if (!groups.has(groupKey)) groups.set(groupKey, new Set());
         groups.get(groupKey)!.add(w.id);
-        // Ensure the parent project is also considered part of the group
         if (w.type === 'miniWindow' && w.parentProjectId) {
           groups.get(groupKey)!.add(`project-${w.parentProjectId}`);
         }
       });
 
-      // Collapse any group whose click is OUTSIDE all its members
       groups.forEach((memberIds) => {
         const clickedInsideGroup = clickedWindowId !== null && memberIds.has(clickedWindowId);
         if (!clickedInsideGroup) {
@@ -188,13 +184,18 @@ export default function DesktopCanvas() {
             setWindows(prev => {
               const win = prev.find(w => w.id === representativeId);
               if (!win || !win.isExpanded) return prev;
-              // Collapse all members of the group
+              // Restore any windows we minimized via section-click
+              const toRestore = new Set(sectionMinimizedIdsRef.current);
               return prev.map((w: WindowState) => {
+                if (toRestore.has(w.id)) return { ...w, isMinimized: false };
                 if (!memberIds.has(w.id) || !w.isExpanded) return w;
                 const restoredPosition = w.preExpandPosition ?? w.position;
                 return { ...w, isExpanded: false, position: restoredPosition, preExpandPosition: undefined };
               });
             });
+            setSectionMinimizedIds([]);
+            setTemporalPopups([]);
+            setProjectInfoOverlay(null);
           }
         }
       });
@@ -202,58 +203,20 @@ export default function DesktopCanvas() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []); // stable: reads from refs, no deps needed
+  }, []);
 
-
-
-  // Responsive Scaling Logic
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      const BASE_WIDTH = 2300; // The width the layout was designed for
-      const MAX_WIDTH = 1920;  // Max readable width constraint
-
-      // Calculate scale to fit screen, but cap at MAX_WIDTH
+      const BASE_WIDTH = 2300;
+      const MAX_WIDTH = 1920;
       const targetWidth = Math.min(width, MAX_WIDTH);
       const newScale = targetWidth / BASE_WIDTH;
-
       setScale(newScale);
-
-      // Calculate boundaries in the scaled coordinate system
-      // The container is centered, so we need to find the offset
-      // The container width is always BASE_WIDTH (2300) in scaled units
-      // The visible width in scaled units is width / newScale
-
-      // If width > MAX_WIDTH, the container is centered with margin
-      // If width <= MAX_WIDTH, the container fills the width (margin is 0)
-
-      // Actually, let's look at the container rendering:
-      // It has width: 2300.
-      // It is centered by 'justify-center' on the parent.
-
-      // Visible width in scaled pixels:
       const visibleWidthScaled = width / newScale;
       const visibleHeightScaled = height / newScale;
-
-      // The container (2300px) is centered in the visible area.
-      // So the left edge of the screen (x=0 in screen pixels) corresponds to:
-      // (2300 - visibleWidthScaled) / 2  <-- This is the x-coordinate of the left screen edge relative to the container's 0
-      // Wait, if visibleWidthScaled > 2300 (very wide screen), then screen left is negative relative to container 0.
-      // If visibleWidthScaled < 2300 (narrow screen), then screen left is positive?
-      // No, if narrow screen, we scaled it so visibleWidthScaled should be exactly 2300?
-      // newScale = width / 2300  => visibleWidthScaled = width / (width/2300) = 2300.
-      // So on narrow screens, minX is 0.
-
-      // On wide screens (width > 1920):
-      // newScale = 1920 / 2300 = 0.834...
-      // visibleWidthScaled = width / 0.834...
-      // visibleWidthScaled will be > 2300.
-      // The container is centered.
-      // So the left edge of the viewport is at x = -(visibleWidthScaled - 2300) / 2
-
       const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
-
       setBoundaryRect({
         minX: -offsetX,
         maxX: BASE_WIDTH + offsetX,
@@ -261,10 +224,7 @@ export default function DesktopCanvas() {
         maxY: visibleHeightScaled
       });
     };
-
-    // Initial calculation
     handleResize();
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -272,33 +232,24 @@ export default function DesktopCanvas() {
   const handleFocus = useCallback((id: string) => {
     setWindows((prev) => {
       const maxZ = Math.max(...prev.map((w) => w.zIndex));
-      return prev.map((w) =>
-        w.id === id ? { ...w, zIndex: maxZ + 1 } : w
-      );
+      return prev.map((w) => w.id === id ? { ...w, zIndex: maxZ + 1 } : w);
     });
   }, []);
 
   const handleClose = useCallback((id: string) => {
-    setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, isOpen: false } : w))
-    );
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isOpen: false } : w)));
   }, []);
 
   const handleMinimize = useCallback((id: string) => {
     setWindows((prev) =>
-      prev.map((w) =>
-        w.id === id ? { ...w, isMinimized: !w.isMinimized, isExpanded: false } : w
-      )
+      prev.map((w) => w.id === id ? { ...w, isMinimized: !w.isMinimized, isExpanded: false } : w)
     );
   }, []);
 
   const handleMove = useCallback((id: string, position: { x: number; y: number }) => {
-    setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, position } : w))
-    );
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, position } : w)));
   }, []);
 
-  // Helper to compute smart expansion position
   const computeExpandPosition = useCallback((w: WindowState, expandedWidth: number, expandedHeight: number) => {
     const PADDING = 20;
     const width = window.innerWidth;
@@ -307,33 +258,23 @@ export default function DesktopCanvas() {
     const MAX_WIDTH = 1920;
     const targetWidth = Math.min(width, MAX_WIDTH);
     const currentScale = targetWidth / BASE_WIDTH;
-
     const visibleWidthScaled = width / currentScale;
     const visibleHeightScaled = height / currentScale;
     const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
-
     const minX = -offsetX;
     const maxX = BASE_WIDTH + offsetX;
     const minY = 0;
     const maxY = visibleHeightScaled;
-
     let x = w.position.x;
     let y = w.position.y;
-
-    if (x + expandedWidth > maxX - PADDING) {
-      x = Math.max(minX + PADDING, maxX - expandedWidth - PADDING);
-    }
-    if (y + expandedHeight > maxY - PADDING) {
-      y = Math.max(minY + PADDING, maxY - expandedHeight - PADDING);
-    }
+    if (x + expandedWidth > maxX - PADDING) x = Math.max(minX + PADDING, maxX - expandedWidth - PADDING);
+    if (y + expandedHeight > maxY - PADDING) y = Math.max(minY + PADDING, maxY - expandedHeight - PADDING);
     if (x < minX + PADDING) x = minX + PADDING;
     if (y < minY + PADDING) y = minY + PADDING;
-
     return { x, y };
   }, []);
 
   const handleToggleExpand = useCallback((id: string, isExpanded: boolean) => {
-    // Helper: expand a single window in-place
     const expandOne = (prev: WindowState[], targetId: string): WindowState[] => {
       const maxZ = Math.max(...prev.map(w => w.zIndex));
       return prev.map(w => {
@@ -343,21 +284,27 @@ export default function DesktopCanvas() {
       });
     };
 
+    if (!isExpanded) {
+      setTemporalPopups([]);
+      setProjectInfoOverlay(null);
+      // Restore any windows minimized by a section-click
+      if (sectionMinimizedIdsRef.current.length > 0) {
+        const toRestore = new Set(sectionMinimizedIdsRef.current);
+        setWindows(prev => prev.map(w => toRestore.has(w.id) ? { ...w, isMinimized: false } : w));
+        setSectionMinimizedIds([]);
+      }
+    }
 
     setWindows(prev => {
       const targetWindow = prev.find(w => w.id === id);
       if (!targetWindow) return prev;
-
       const maxZ = Math.max(...prev.map(win => win.zIndex));
 
       if (targetWindow.type === 'miniWindow' && targetWindow.parentProjectId && isExpanded) {
-        // ── Sequential expand (step 1): open parent project only ──
-        // The mini window itself opens after a delay (see setTimeout below).
         const parentId = `project-${targetWindow.parentProjectId}`;
         return expandOne(prev, parentId);
       }
 
-      // ── All other cases: build linked set, expand/collapse simultaneously ──
       const linkedIds = new Set<string>([id]);
       if (targetWindow.type === 'miniWindow' && targetWindow.parentProjectId) {
         linkedIds.add(`project-${targetWindow.parentProjectId}`);
@@ -384,63 +331,39 @@ export default function DesktopCanvas() {
       });
     });
 
-    // ── Sequential expand (step 2): 350ms after parent opens, expand the mini window ──
     if (isExpanded && id.startsWith('mini-')) {
       setTimeout(() => setWindows(prev => expandOne(prev, id)), 350);
     }
   }, [computeExpandPosition]);
 
-
   return (
     <motion.div
-      className="relative w-full h-full bg-[#1E1E1E] overflow-hidden"
+      className="relative w-full h-full bg-[#0F0F0F] overflow-hidden"
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
-      {/* Optional: Grid or Texture Background */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
-        }}
-      />
 
-      {/* Centered Scaled Container */}
-      <div
-        className="w-full h-full flex justify-center overflow-hidden"
-        style={{
-          // Ensure the scrollbar appears if the scaled content is taller than screen
-          alignItems: 'flex-start'
-        }}
-      >
+
+      <div className="w-full h-full flex justify-center overflow-hidden" style={{ alignItems: 'flex-start' }}>
         <div
           className="relative shrink-0 origin-top"
           style={{
-            width: 2300, // BASE_WIDTH
-            height: '100%', // Allow it to grow
+            width: 2300,
+            height: '100%',
             minHeight: 1800,
             transform: `scale(${scale})`,
-            // When scaling down, the element takes less space visually but keeps layout space?
-            // No, in flexbox, if we don't adjust width/height, it might be weird.
-            // But transform doesn't affect flow.
-            // So we need to compensate for the empty space if we want it to be truly centered?
-            // Actually, 'justify-center' centers the 2300px block.
-            // If we scale it, it shrinks towards the top-center (origin-top).
-            // So it remains centered visually.
-            marginBottom: -1200 * (1 - scale) // Optional: reduce bottom gap if needed
+            marginBottom: -1200 * (1 - scale)
           }}
         >
-
-          {/* Category Labels (Folder Headers) */}
           <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+            <h2 className="text-white/20 text-6xl font-medium uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
               Research /<br />Computation
             </h2>
           </div>
 
           <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-bold uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+            <h2 className="text-white/20 text-6xl font-medium uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
               Architectural<br />Design
             </h2>
           </div>
@@ -458,68 +381,62 @@ export default function DesktopCanvas() {
               boundaryRect={boundaryRect}
             >
               {win.type === 'profile' ? (
-                <div className="p-4 flex gap-4">
-                  {/* Left side: Text content */}
-                  <div className="flex-1 space-y-6">
-                    <div>
-                      <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
-                      <p className="text-lg text-gray-300">{profileData.title}</p>
-                      <p className="text-sm text-gray-400 mt-1 font-light">{profileData.intro}</p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
-                      <div className="space-y-4">
-                        {Object.entries(profileData.skills).map(([category, skills]) => (
-                          <div key={category}>
-                            <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {skills.map(skill => (
-                                <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
-                                  {skill}
-                                </span>
-                              ))}
+                win.isMinimized ? (
+                  // Minimized / compact profile card
+                  <div className="px-4 pt-2 pb-4">
+                    <h1 className="text-xl font-bold leading-tight">{profileData.name}</h1>
+                    <p className="text-sm text-gray-300 mt-0.5">{profileData.title}</p>
+                    <p className="text-xs text-gray-400 mt-2 font-light leading-relaxed">{profileData.intro}</p>
+                  </div>
+                ) : (
+                  // Full profile
+                  <div className="p-4 flex gap-4">
+                    <div className="flex-1 space-y-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
+                        <p className="text-lg text-gray-300">{profileData.title}</p>
+                        <p className="text-sm text-gray-400 mt-1 font-light">{profileData.intro}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
+                        <div className="space-y-4">
+                          {Object.entries(profileData.skills).map(([category, skills]) => (
+                            <div key={category}>
+                              <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {skills.map(skill => (
+                                  <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Education</h3>
+                        {profileData.education.map((edu, i) => (
+                          <div key={i} className="text-sm">
+                            <div className="font-medium">{edu.school}</div>
+                            <div className="text-gray-400">{edu.degree}, {edu.year}</div>
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    <div>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Education</h3>
-                      {profileData.education.map((edu, i) => (
-                        <div key={i} className="text-sm">
-                          <div className="font-medium">{edu.school}</div>
-                          <div className="text-gray-400">{edu.degree}, {edu.year}</div>
-                        </div>
-                      ))}
+                    <div className="shrink-0">
+                      <img src="/images/profile/roma.jpg" alt="Roma Luo" className="w-32 h-32 object-cover border-2 border-white/20" />
                     </div>
                   </div>
-
-                  {/* Right side: Profile photo */}
-                  <div className="shrink-0">
-                    <img
-                      src="/images/profile/roma.jpg"
-                      alt="Roma Luo"
-                      className="w-32 h-32 object-cover border-2 border-white/20"
-                    />
-                  </div>
-                </div>
+                )
               ) : win.type === 'contact' ? (
                 <div className="p-4 space-y-3">
                   <div>
                     <h2 className="text-xl font-bold mb-3">Get in Touch</h2>
-                    <p className="text-gray-300 text-xs mb-4 font-light">
-                      Feel free to reach out for collaborations, opportunities, or just to connect.
-                    </p>
+                    <p className="text-gray-300 text-xs mb-4 font-light">Feel free to reach out for collaborations, opportunities, or just to connect.</p>
                   </div>
-
                   <div className="flex items-center gap-6 justify-center">
-                    <a
-                      href="mailto:roma.luo@outlook.com"
-                      className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
-                      title="Email: roma.luo@outlook.com"
-                    >
+                    <a href="mailto:roma.luo@outlook.com" className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group" title="Email: roma.luo@outlook.com">
                       <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
                         <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
@@ -527,14 +444,7 @@ export default function DesktopCanvas() {
                       </div>
                       <span className="text-xs text-gray-400">Email</span>
                     </a>
-
-                    <a
-                      href="https://www.linkedin.com/in/roma-luo-519b73274/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group"
-                      title="LinkedIn Profile"
-                    >
+                    <a href="https://www.linkedin.com/in/roma-luo-519b73274/" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group" title="LinkedIn Profile">
                       <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
                         <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
@@ -546,21 +456,16 @@ export default function DesktopCanvas() {
                 </div>
               ) : win.type === 'awards' ? (
                 <div className="p-4 space-y-3">
-                  <div>
-                    <h2 className="text-xl font-bold mb-3">Awards & Recognition</h2>
-                  </div>
-
+                  <h2 className="text-xl font-bold mb-3">Awards & Recognition</h2>
                   <div className="space-y-2 text-sm">
                     <div className="border-l-2 border-white/30 pl-3 py-1">
                       <div className="font-semibold">Light-Weight Structure Association Australasia Competition 2025</div>
                       <div className="text-gray-400 text-xs">2025</div>
                     </div>
-
                     <div className="border-l-2 border-white/30 pl-3 py-1">
                       <div className="font-semibold">Lemon Grasui Graduate Exhibition Award</div>
                       <div className="text-gray-400 text-xs">2025</div>
                     </div>
-
                     <div className="border-l-2 border-white/30 pl-3 py-1">
                       <div className="font-semibold">Best Undergraduate Thesis Award</div>
                       <div className="text-gray-400 text-xs">2023</div>
@@ -570,31 +475,19 @@ export default function DesktopCanvas() {
               ) : win.type === 'experience' ? (
                 <div className="p-5 space-y-5 h-full overflow-y-auto custom-scrollbar">
                   <style jsx>{`
-                    .custom-scrollbar::-webkit-scrollbar {
-                      width: 6px;
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-track {
-                      background: rgba(255, 255, 255, 0.05);
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-thumb {
-                      background-color: rgba(255, 255, 255, 0.2);
-                      border-radius: 3px;
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                      background-color: rgba(255, 255, 255, 0.3);
-                    }
+                    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 3px; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
                   `}</style>
-
                   <div>
                     <h2 className="text-xl font-bold mb-1">Professional Experience</h2>
                     <p className="text-xs text-gray-400">Career History & Roles</p>
                   </div>
-
                   <div className="space-y-6">
                     {experienceData.map((job, i) => (
                       <div key={i} className="relative pl-4 border-l border-white/20">
-                        <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#1E1E1E] border border-white/40"></div>
-
+                        <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#121212] border border-white/40"></div>
                         <div className="mb-1">
                           <h3 className="font-bold text-sm">{job.role}</h3>
                           <div className="flex justify-between items-baseline">
@@ -602,10 +495,7 @@ export default function DesktopCanvas() {
                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">{job.period}</span>
                           </div>
                         </div>
-
-                        <p className="text-xs text-gray-300 leading-relaxed font-light">
-                          {job.description}
-                        </p>
+                        <p className="text-xs text-gray-300 leading-relaxed font-light">{job.description}</p>
                       </div>
                     ))}
                   </div>
@@ -621,12 +511,124 @@ export default function DesktopCanvas() {
                 <ProjectWindowContent
                   win={win}
                   onImageClick={(media, index, alt) => setLightboxMedia({ media, currentIndex: index, alt })}
+                  onSectionClick={(sectionMedia, windowId, description) => {
+                    if (description !== undefined) {
+                      // Project Info: clear popups, show text overlay
+                      if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
+                      setTemporalPopups([]);
+                      setProjectInfoOverlay(description);
+                      return;
+                    }
+                    setProjectInfoOverlay(null);
+
+                    // Minimize all OTHER open project/mini windows (excluding the active project's group)
+                    const activeWin = windowsRef.current.find(w => w.id === windowId);
+                    const activeProjectId = activeWin?.projectId;
+                    const toMinimize = windowsRef.current.filter(w =>
+                      w.isOpen &&
+                      !w.isMinimized &&
+                      (w.type === 'project' || w.type === 'miniWindow' ||
+                        w.type === 'location' || w.type === 'awards' ||
+                        w.type === 'contact' || w.type === 'experience') &&
+                      w.id !== windowId &&
+                      !(w.type === 'miniWindow' && w.parentProjectId === activeProjectId)
+                    );
+                    if (toMinimize.length > 0) {
+                      const ids = toMinimize.map(w => w.id);
+                      // Only add ones not already tracked
+                      setSectionMinimizedIds(prev => {
+                        const existing = new Set(prev);
+                        const newIds = ids.filter(id => !existing.has(id));
+                        return newIds.length > 0 ? [...prev, ...newIds] : prev;
+                      });
+                      setWindows(prev => prev.map(w => ids.includes(w.id) ? { ...w, isMinimized: true } : w));
+                    }
+
+                    // Compute random positions in canvas-space
+                    const vw = window.innerWidth;
+                    const vh = window.innerHeight;
+                    const BASE_W = 2300;
+                    const MAX_W = 1920;
+                    const sc = Math.min(vw, MAX_W) / BASE_W;
+                    const visW = vw / sc;
+                    const visH = vh / sc;
+                    const offX = (visW - BASE_W) / 2;
+                    // Popup assumed max size for bounds checking
+                    const PW = 800, PH = 620, PAD = 40, MIN_GAP = 80;
+                    const minX = -offX + PAD, maxX = BASE_W + offX - PW - PAD;
+                    const minY = PAD, maxY = visH - PH - PAD;
+
+                    const positions: { x: number; y: number }[] = [];
+                    for (let i = 0; i < sectionMedia.length; i++) {
+                      let x = 0, y = 0, attempts = 0;
+                      do {
+                        x = minX + Math.random() * Math.max(1, maxX - minX);
+                        y = minY + Math.random() * Math.max(1, maxY - minY);
+                        attempts++;
+                      } while (
+                        attempts < 60 &&
+                        positions.some(p => Math.abs(p.x - x) < MIN_GAP && Math.abs(p.y - y) < MIN_GAP)
+                      );
+                      positions.push({ x, y });
+                    }
+
+                    const newPopups: TemporalPopup[] = sectionMedia.map((src, i) => ({
+                      id: `${windowId}-popup-${Date.now()}-${i}`,
+                      mediaSrc: src,
+                      offsetIndex: i,
+                      ownerWindowId: windowId,
+                      x: positions[i].x,
+                      y: positions[i].y,
+                      zIndex: 8000 + i,
+                    }));
+
+                    if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
+                    if (temporalPopupsRef.current.length > 0) {
+                      // Exit existing popups first, then enter new ones
+                      setTemporalPopups([]);
+                      switchTimerRef.current = setTimeout(() => {
+                        setTemporalPopups(newPopups);
+                      }, 220);
+                    } else {
+                      setTemporalPopups(newPopups);
+                    }
+                  }}
                 />
               )}
             </DraggableWindow>
           ))}
+
+          <AnimatePresence>
+            {temporalPopups.map((popup) => (
+              <TemporalPopupCard
+                key={popup.id}
+                popup={popup}
+                onClose={() => setTemporalPopups(prev => prev.filter(p => p.id !== popup.id))}
+                onBringToFront={() => {
+                  setTemporalPopups(prev => {
+                    const maxZ = Math.max(...prev.map(p => p.zIndex));
+                    return prev.map(p => p.id === popup.id ? { ...p, zIndex: maxZ + 1 } : p);
+                  });
+                }}
+                onImageClick={(src) => setLightboxMedia({
+                  media: temporalPopups.map(p => p.mediaSrc),
+                  currentIndex: temporalPopups.findIndex(p => p.mediaSrc === src),
+                  alt: 'Media',
+                })}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       </div>
+
+      <AnimatePresence>
+        {projectInfoOverlay !== null && (
+          <ProjectInfoOverlay
+            text={projectInfoOverlay}
+            onClose={() => setProjectInfoOverlay(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <Lightbox
         isOpen={!!lightboxMedia}
@@ -639,181 +641,89 @@ export default function DesktopCanvas() {
   );
 }
 
-// Separate component for project content to improve performance
-function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImageClick?: (media: string[], index: number, alt: string) => void }) {
+// ──────────────────────────────────────────────
+// Project window content
+// ──────────────────────────────────────────────
+function ProjectWindowContent({
+  win,
+  onImageClick,
+  onSectionClick,
+}: {
+  win: WindowState;
+  onImageClick?: (media: string[], index: number, alt: string) => void;
+  onSectionClick?: (sectionMedia: string[], windowId: string, description?: string) => void;
+}) {
   const project = useMemo(() => projects.find(p => p.id === win.projectId), [win.projectId]);
-  const media = useMemo(() => project ? getProjectMedia(project.id) : [], [project]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const thumbnail = useMemo(() => project ? getProjectMedia(project.id) : [], [project]);
+  const sections = useMemo(() => project ? getProjectSections(project.id) : {}, [project]);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!win.isExpanded) setActiveSection(null);
+  }, [win.isExpanded]);
 
   if (!project) return <div className="p-4">Project not found</div>;
 
-  // First media item for collapsed view
-  const firstMedia = media[0] || project.thumbnail;
-  const isVideoCollapsed = firstMedia?.endsWith('.mp4');
+  const firstMedia = thumbnail[0] || project.thumbnail;
+  const isVideoThumb = firstMedia?.endsWith('.mp4');
+  const sectionNames = Object.keys(sections);
 
-  // Current media for expanded view
-  const currentMedia = media[currentIndex] || firstMedia;
-  const isVideoExpanded = currentMedia?.endsWith('.mp4');
-
-  const handleNext = () => {
-    if (currentIndex < media.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
+  const handleSectionClick = (name: string) => {
+    setActiveSection(name);
+    if (name === 'Project Info') {
+      onSectionClick?.([], win.id, project.content?.description ?? '');
+    } else {
+      onSectionClick?.(sections[name] ?? [], win.id);
     }
   };
 
   return (
     <div className="h-full flex flex-col">
       {!win.isExpanded ? (
-        // Collapsed State: First media only
         <div className="relative w-full h-full">
           {firstMedia ? (
-            isVideoCollapsed ? (
-              <video
-                src={firstMedia}
-                className="w-full h-full object-cover pointer-events-none"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-              />
+            isVideoThumb ? (
+              <video src={firstMedia} className="w-full h-full object-cover pointer-events-none" autoPlay loop muted playsInline preload="auto" />
             ) : (
-              <img
-                src={firstMedia}
-                alt={project.title}
-                className="w-full h-full object-cover pointer-events-none"
-                loading="lazy"
-              />
+              <img src={firstMedia} alt={project.title} className="w-full h-full object-cover pointer-events-none" loading="lazy" />
             )
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">
-              No Image
-            </div>
+            <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">No Image</div>
           )}
-
-
         </div>
       ) : (
-        // Expanded State: Vertical layout (top: image, bottom: details)
-        <div className="h-full bg-transparent flex flex-col">
-          {/* Top: Image Canvas with Navigation */}
-          <div className="h-[60%] relative bg-black flex items-center justify-center shrink-0">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="absolute inset-0 flex items-center justify-center"
+        // Expanded: image fills full window, tabs float over bottom
+        <div className="relative h-full w-full overflow-hidden">
+          {/* Cover media — full bleed */}
+          {firstMedia ? (
+            isVideoThumb ? (
+              <video src={firstMedia} className="w-full h-full object-cover pointer-events-none" autoPlay loop muted playsInline preload="auto" />
+            ) : (
+              <img src={firstMedia} alt={project.title} className="w-full h-full object-cover pointer-events-none" loading="lazy" />
+            )
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">No Image</div>
+          )}
+
+          {/* Section tabs — overlaid, auto white/black via mix-blend-mode */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 py-3 flex gap-0 flex-wrap" style={{ mixBlendMode: 'difference' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleSectionClick('Project Info'); }}
+              className={`px-4 py-2 text-xs uppercase tracking-widest transition-all duration-200 border-b-2 mr-1 ${activeSection === 'Project Info' ? 'border-white text-white' : 'border-transparent text-white hover:text-white/80'
+                }`}
+            >
+              Project Info
+            </button>
+            {sectionNames.map(name => (
+              <button
+                key={name}
+                onClick={(e) => { e.stopPropagation(); handleSectionClick(name); }}
+                className={`px-4 py-2 text-xs uppercase tracking-widest transition-all duration-200 border-b-2 mr-1 ${activeSection === name ? 'border-white text-white' : 'border-transparent text-white hover:text-white/80'
+                  }`}
               >
-                {isVideoExpanded ? (
-                  <video
-                    src={currentMedia}
-                    autoPlay
-                    muted
-                    loop
-                    controls
-                    className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity"
-                    playsInline
-                    preload="auto"
-                    onClick={() => onImageClick?.(media, currentIndex, project.title)}
-                    title="Click to expand"
-                  />
-                ) : (
-                  <img
-                    src={currentMedia}
-                    alt={`${project.title} - ${currentIndex + 1}`}
-                    className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                    loading="lazy"
-                    onClick={() => onImageClick?.(media, currentIndex, project.title)}
-                    title="Click to expand"
-                  />
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation Arrows */}
-            {media.length > 1 && (
-              <>
-                {currentIndex > 0 && (
-                  <button
-                    onClick={handlePrev}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 transition-all duration-200 z-10"
-                  >
-                    <ChevronLeft size={24} />
-                  </button>
-                )}
-                {currentIndex < media.length - 1 && (
-                  <button
-                    onClick={handleNext}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 transition-all duration-200 z-10"
-                  >
-                    <ChevronRight size={24} />
-                  </button>
-                )}
-
-                {/* Counter */}
-                <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1 border border-white/10 z-10">
-                  {currentIndex + 1} / {media.length}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Bottom: Project Details */}
-          <div
-            className="flex-1 p-6 space-y-6 overflow-y-auto border-t border-white/10"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#000000 transparent'
-            }}
-          >
-            <style jsx>{`
-              div::-webkit-scrollbar {
-                width: 8px;
-              }
-              div::-webkit-scrollbar-track {
-                background: transparent;
-              }
-              div::-webkit-scrollbar-thumb {
-                background-color: #000000;
-                border-radius: 0;
-              }
-              div::-webkit-scrollbar-thumb:hover {
-                background-color: #1a1a1a;
-              }
-            `}</style>
-
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="text-2xl font-bold mb-2">{project.title}</h2>
-              <p className="text-gray-300 font-light">{project.shortDescription}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400 block text-xs uppercase tracking-wider mb-1">Role</span>
-                {project.content?.role}
-              </div>
-              <div>
-                <span className="text-gray-400 block text-xs uppercase tracking-wider mb-1">Tech</span>
-                <div className="flex flex-wrap gap-1">
-                  {project.content?.technologies.map(t => (
-                    <span key={t} className="bg-white/10 px-1.5 py-0.5 text-xs">{t}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="prose prose-invert prose-sm max-w-none">
-              <p className="font-light">{project.content?.description}</p>
-            </div>
+                {name}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -821,63 +731,144 @@ function ProjectWindowContent({ win, onImageClick }: { win: WindowState; onImage
   );
 }
 
-// Mini window content: shows a single media file only
+// ──────────────────────────────────────────────
+// Temporal popup card
+// ──────────────────────────────────────────────
+function TemporalPopupCard({
+  popup, onClose, onBringToFront, onImageClick,
+}: {
+  popup: TemporalPopup;
+  onClose: () => void;
+  onBringToFront: () => void;
+  onImageClick: (src: string) => void;
+}) {
+  const isVideo = popup.mediaSrc.endsWith('.mp4');
+  const enterDelay = popup.offsetIndex * 0.15;
+  // Track whether the last gesture was a drag to suppress click-to-lightbox
+  const isDragging = useRef(false);
+
+  const handleMediaClick = () => {
+    if (isDragging.current) return;
+    onImageClick(popup.mediaSrc);
+  };
+
+  return (
+    <motion.div
+      data-temporal-popup="true"
+      drag
+      dragMomentum={false}
+      dragElastic={0}
+      onDragStart={() => { isDragging.current = true; onBringToFront(); }}
+      onDragEnd={() => { setTimeout(() => { isDragging.current = false; }, 50); }}
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.94 }}
+      transition={{ duration: 0.22, ease: 'easeOut', delay: enterDelay }}
+      className="absolute overflow-hidden shadow-2xl group"
+      style={{
+        left: popup.x,
+        top: popup.y,
+        maxWidth: 800,
+        maxHeight: 620,
+        width: 'fit-content',
+        height: 'fit-content',
+        zIndex: popup.zIndex,
+        cursor: 'grab',
+      }}
+      whileDrag={{ cursor: 'grabbing', scale: 1.02, zIndex: 9000 }}
+    >
+      {/* Close button — appears on hover */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="absolute top-2 right-2 z-10 p-1 bg-black/50 text-white/60 hover:text-white hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100"
+        style={{ backdropFilter: 'blur(4px)' }}
+      >
+        <X size={14} />
+      </button>
+      {isVideo ? (
+        <video
+          src={popup.mediaSrc}
+          className="block"
+          style={{ maxWidth: 800, maxHeight: 620, width: 'auto', height: 'auto', pointerEvents: 'none' }}
+          autoPlay loop muted playsInline preload="auto"
+        />
+      ) : (
+        <img
+          src={popup.mediaSrc}
+          alt=""
+          className="block select-none"
+          style={{ maxWidth: 800, maxHeight: 620, width: 'auto', height: 'auto', pointerEvents: 'none' }}
+          draggable={false}
+          loading="lazy"
+        />
+      )}
+      {/* Invisible click overlay on top so drag doesn't conflict with media events */}
+      <div
+        className="absolute inset-0"
+        onClick={handleMediaClick}
+        style={{ cursor: 'inherit' }}
+      />
+    </motion.div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Project Info overlay
+// ──────────────────────────────────────────────
+function ProjectInfoOverlay({ text, onClose }: { text: string; onClose: () => void }) {
+  return (
+    <motion.div
+      data-project-info-overlay="true"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className="fixed inset-0 z-[5000] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="max-w-2xl px-12 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-white/90 leading-relaxed font-light" style={{ fontSize: '1.05rem', letterSpacing: '0.01em' }}>
+          {text}
+        </p>
+        <button onClick={onClose} className="mt-10 text-white/30 text-xs uppercase tracking-widest hover:text-white/60 transition-colors">
+          close
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Mini window content
+// ──────────────────────────────────────────────
 function MiniWindowContent({ win, onImageClick }: { win: WindowState; onImageClick?: (media: string[], index: number, alt: string) => void }) {
   const mediaSrc = win.mediaSrc || '';
   const isVideo = mediaSrc.endsWith('.mp4');
-
   if (!mediaSrc) return <div className="p-4">No media</div>;
 
   return (
     <div className="h-full flex flex-col">
       {!win.isExpanded ? (
-        // Collapsed: compact media preview
         <div className="relative w-full h-full">
           {isVideo ? (
-            <video
-              src={mediaSrc}
-              className="w-full h-full object-cover pointer-events-none"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-            />
+            <video src={mediaSrc} className="w-full h-full object-cover pointer-events-none" autoPlay loop muted playsInline preload="auto" />
           ) : (
-            <img
-              src={mediaSrc}
-              alt={win.title}
-              className="w-full h-full object-cover pointer-events-none"
-              loading="lazy"
-            />
+            <img src={mediaSrc} alt={win.title} className="w-full h-full object-cover pointer-events-none" loading="lazy" />
           )}
-
         </div>
       ) : (
-        // Expanded: full media only, no project details
         <div className="h-full bg-black flex items-center justify-center">
           {isVideo ? (
-            <video
-              src={mediaSrc}
-              autoPlay
-              muted
-              loop
-              controls
-              className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity"
-              playsInline
-              preload="auto"
-              onClick={() => onImageClick?.([mediaSrc], 0, win.title)}
-              title="Click to expand"
-            />
+            <video src={mediaSrc} autoPlay muted loop controls className="max-w-full max-h-full cursor-pointer hover:opacity-90 transition-opacity" playsInline preload="auto" onClick={() => onImageClick?.([mediaSrc], 0, win.title)} title="Click to expand" />
           ) : (
-            <img
-              src={mediaSrc}
-              alt={win.title}
-              className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
-              loading="lazy"
-              onClick={() => onImageClick?.([mediaSrc], 0, win.title)}
-              title="Click to expand"
-            />
+            <img src={mediaSrc} alt={win.title} className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity" loading="lazy" onClick={() => onImageClick?.([mediaSrc], 0, win.title)} title="Click to expand" />
           )}
         </div>
       )}

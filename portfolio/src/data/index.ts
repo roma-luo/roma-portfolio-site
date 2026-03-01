@@ -2,23 +2,106 @@ import { Project } from '../types';
 
 export type ProjectCategory = 'research/computation' | 'architectural design';
 
-// Helper function to get all media files for a project
+// Returns the cover/thumbnail media for a project (the p{id}-1.ext file)
 export function getProjectMedia(projectId: string): string[] {
-  // This will be populated based on the file structure: p{id}-{index}.{ext}
-  const mediaMap: Record<string, string[]> = {
-    'p1': ['/images/projects/p1-1.mp4', '/images/projects/p1-2.png', '/images/projects/p1-3.png', '/images/projects/p1-4.png', '/images/projects/p1-5.JPG', '/images/projects/p1-6.png', '/images/projects/p1-7.png', '/images/projects/p1-8.png'],
-    'p2': ['/images/projects/p2-1.jpg', '/images/projects/p2-2.png', '/images/projects/p2-3.jpg', '/images/projects/p2-4.jpg', '/images/projects/p2-5.jpg', '/images/projects/p2-6.jpg'],
-    'p3': ['/images/projects/p3-1.mp4', '/images/projects/p3-2.png', '/images/projects/p3-3.jpg', '/images/projects/p3-4.mp4', '/images/projects/p3-5.png', '/images/projects/p3-6.png', '/images/projects/p3-7.png', '/images/projects/p3-8.jpg', '/images/projects/p3-9.jpg'],
-    'p4': ['/images/projects/p4-1.png', '/images/projects/p4-2.png', '/images/projects/p4-3.png', '/images/projects/p4-4.png', '/images/projects/p4-5.png'],
-    'p5': ['/images/projects/p5-1.png', '/images/projects/p5-2.png', '/images/projects/p5-3.png', '/images/projects/p5-4.png', '/images/projects/p5-5.png', '/images/projects/p5-6.png', '/images/projects/p5-7.png', '/images/projects/p5-8.png'],
-    'p6': ['/images/projects/p6-1.png', '/images/projects/p6-2.png'],
-    'p7': ['/images/projects/p7-1.jpg', '/images/projects/p7-2.png', '/images/projects/p7-3.png', '/images/projects/p7-4.png'],
-    'p8': ['/images/projects/p8-1.png', '/images/projects/p8-2.jpg', '/images/projects/p8-3.jpg'],
-    'p9': ['/images/projects/p9-1.png', '/images/projects/p9-2.png', '/images/projects/p9-3.png'],
-    'p10': ['/images/projects/p10-1.jpg', '/images/projects/p10-2.jpg', '/images/projects/p10-3.jpg'],
+  const thumbnailMap: Record<string, string> = {
+    'p1': '/images/projects/p1-1.mp4',
+    'p2': '/images/projects/p2-1.jpg',
+    'p3': '/images/projects/p3-1.mp4',
+    'p4': '/images/projects/p4-1.png',
+    'p5': '/images/projects/p5-1.png',
+    'p6': '/images/projects/p6-1.png',
+    'p7': '/images/projects/p7-1.jpg',
+    'p8': '/images/projects/p8-1.png',
+    'p9': '/images/projects/p9-1.png',
+    'p10': '/images/projects/p10-1.jpg',
+  };
+  const src = thumbnailMap[projectId];
+  return src ? [src] : [];
+}
+
+// Returns grouped section media, e.g. { Models: [...], Drawings: [...] }
+// Files follow the naming pattern: p{id}-{SectionName}-{n}.{ext}
+export function getProjectSections(projectId: string): Record<string, string[]> {
+  const allSectionFiles: Record<string, string[]> = {
+    'p1': [
+      '/images/projects/p1-Models-1.png',
+      '/images/projects/p1-Models-2.png',
+      '/images/projects/p1-Models-3.png',
+      '/images/projects/p1-Models-4.JPG',
+      '/images/projects/p1-Drawings-1.png',
+      '/images/projects/p1-Drawings-2.png',
+      '/images/projects/p1-Drawings-3.png',
+    ],
+    'p2': [
+      '/images/projects/p2-Models-1.jpg',
+      '/images/projects/p2-Models-2.jpg',
+      '/images/projects/p2-Models-3.jpg',
+      '/images/projects/p2-Models-4.jpg',
+      '/images/projects/p2-Details-1.png',
+    ],
+    'p3': [
+      '/images/projects/p3-Models-1.jpg',
+      '/images/projects/p3-Models-2.jpg',
+      '/images/projects/p3-Models-3.jpg',
+      '/images/projects/p3-Details-1.png',
+      '/images/projects/p3-Details-2.mp4',
+      '/images/projects/p3-Details-3.png',
+      '/images/projects/p3-Details-4.png',
+      '/images/projects/p3-Drawings-1.png',
+    ],
+    'p4': [
+      '/images/projects/p4-Details-1.png',
+      '/images/projects/p4-Details-2.png',
+      '/images/projects/p4-Details-3.png',
+      '/images/projects/p4-Details-4.png',
+    ],
+    'p5': [
+      '/images/projects/p5-Details-1.png',
+      '/images/projects/p5-Details-2.png',
+      '/images/projects/p5-Details-3.png',
+      '/images/projects/p5-Details-4.png',
+      '/images/projects/p5-Details-5.png',
+      '/images/projects/p5-Details-6.png',
+      '/images/projects/p5-Details-7.png',
+    ],
+    'p6': [
+      '/images/projects/p6-Drawings-1.png',
+    ],
+    'p7': [
+      '/images/projects/p7-Drawings-1.png',
+      '/images/projects/p7-Drawings-2.png',
+      '/images/projects/p7-Drawings-3.png',
+    ],
+    'p8': [
+      '/images/projects/p8-Drawings-1.jpg',
+      '/images/projects/p8-Drawings-2.jpg',
+    ],
+    'p9': [
+      '/images/projects/p9-Drawings-1.png',
+      '/images/projects/p9-Drawings-2.png',
+    ],
+    'p10': [
+      '/images/projects/p10-Drawings-1.jpg',
+      '/images/projects/p10-Drawings-2.jpg',
+    ],
   };
 
-  return mediaMap[projectId] || [];
+  const files = allSectionFiles[projectId] || [];
+  const sections: Record<string, string[]> = {};
+
+  // Parse section name from filename: p{id}-{SectionName}-{n}.{ext}
+  const re = /\/p\d+-([^-]+)-\d+\.[^.]+$/;
+  files.forEach(src => {
+    const match = src.match(re);
+    if (match) {
+      const sectionName = match[1];
+      if (!sections[sectionName]) sections[sectionName] = [];
+      sections[sectionName].push(src);
+    }
+  });
+
+  return sections;
 }
 
 export const projects: (Project & { category: ProjectCategory })[] = [

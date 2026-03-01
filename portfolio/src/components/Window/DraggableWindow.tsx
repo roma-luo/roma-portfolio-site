@@ -119,7 +119,7 @@ const DraggableWindow = memo(function DraggableWindow({
         ref={nodeRef}
         data-window-id={windowState.id}
         className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform
-          ${windowState.isMinimized ? 'h-10 overflow-hidden' : ''}
+          ${windowState.isMinimized && windowState.type !== 'profile' ? 'h-10 overflow-hidden' : ''}
           ${!isDragging
             ? (isExpanding || isCollapsing)
               ? 'transition-[width,height,transform] duration-500 ease-out'
@@ -129,13 +129,9 @@ const DraggableWindow = memo(function DraggableWindow({
         `}
         style={{
           zIndex: windowState.zIndex,
-          width: width,
+          width: windowState.isMinimized && windowState.type === 'profile' ? 'auto' : width,
           height: windowState.isMinimized ? 'auto' : height,
-          background: windowState.type === 'contact'
-            ? 'linear-gradient(135deg, rgba(50, 50, 50, 0.5) 0%, rgba(80, 80, 80, 0.5) 100%)'
-            : 'var(--window-bg)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          background: '#121212',
           color: 'white',
         }}
         onClick={handleWindowClick}
@@ -166,7 +162,7 @@ const DraggableWindow = memo(function DraggableWindow({
         </div>
 
         {/* Content */}
-        {!windowState.isMinimized && (
+        {(!windowState.isMinimized || windowState.type === 'profile') && (
           <div className="flex-1 overflow-auto cursor-auto relative">
             {children}
           </div>
