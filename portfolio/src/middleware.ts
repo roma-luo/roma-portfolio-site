@@ -25,8 +25,8 @@ export async function middleware(req: NextRequest) {
         path: "/",
     });
 
-    // Fire-and-forget: don't await, don't block the page load
-    sendDiscordNotification(req).catch(() => {
+    // Must await — Edge runtime kills unawaited async tasks when middleware returns
+    await sendDiscordNotification(req).catch(() => {
         // fail silently — visitor should never be affected
     });
 
