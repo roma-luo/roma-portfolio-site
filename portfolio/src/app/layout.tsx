@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 // 1. 在这里导入 Analytics 组件
 import { Analytics } from "@vercel/analytics/react";
-import VisitorTracker from "@/components/VisitorTracker";
 
 export const metadata: Metadata = {
   title: "rluo.",
@@ -29,8 +28,7 @@ export default function RootLayout({
         {children}
         {/* 2. 在这里添加 Analytics 组件 */}
         <Analytics />
-        {/* 3. 隐形访客雷达 */}
-        <VisitorTracker />
+
       </body>
     </html>
   );

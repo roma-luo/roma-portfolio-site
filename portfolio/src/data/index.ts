@@ -263,12 +263,6 @@ export const miniWindows: MiniWindowConfig[] = [
     mediaSrc: '/images/projects/p1-extra-1.mp4',
     title: 'web interaction',
   },
-  {
-    id: 'mini-p1-2',
-    parentProjectId: 'p1',
-    mediaSrc: '/images/projects/p1-extra-2.png',
-    title: 'hardware',
-  },
 ];
 
 export const profileData = {
