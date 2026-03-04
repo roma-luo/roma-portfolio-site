@@ -3,14 +3,12 @@ export interface Project {
   title: string;
   shortDescription: string;
   thumbnail?: string;
-  images?: string[];
   tags: string[];
   category?: 'research/computation' | 'architectural design';
   content?: {
     description: string;
     role: string;
     technologies: string[];
-    images?: string[];
   };
 }
 
@@ -21,7 +19,7 @@ export interface WindowState {
   title: string;
   isOpen: boolean;
   isMinimized: boolean;
-  isExpanded: boolean; // New state for "expanded" view
+  isExpanded: boolean;
   zIndex: number;
   position: { x: number; y: number };
   preExpandPosition?: { x: number; y: number }; // Saved position before expansion, for restore on collapse
@@ -30,9 +28,4 @@ export interface WindowState {
   projectId?: string; // Links to project data if type is 'project'
   parentProjectId?: string; // For miniWindow: links to parent project
   mediaSrc?: string; // For miniWindow: the single media file to display
-}
-
-export interface Position {
-  x: number;
-  y: number;
 }

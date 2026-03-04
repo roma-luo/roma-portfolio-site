@@ -3,57 +3,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const VIDEO_URLS = [
-  '/images/projects/p1-1.mp4',
-  '/images/projects/p3-1.mp4',
-  '/images/projects/p3-4.mp4',
-];
-
-const MAX_LOADING_TIME = 6000;
 const TARGET_TEXT = 'roma luo';
 const BG_COLOR = '#0a0a0a';
 
-const REVEAL_DELAY = 500;    // ms before animation starts
-const ANIM_DURATION = 1200;  // ms to go from fully pixelated → crisp
-const START_BLOCK = 64;      // initial pixel block size (coarse)
+const REVEAL_DELAY = 300;    // ms before pixel animation starts
+const ANIM_DURATION = 1200;  // ms for pixelation → crisp
+const START_BLOCK = 64;      // initial pixel block size
 
-// Cubic ease-out: starts fast, decelerates as it approaches clarity
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
 interface LoadingScreenProps {
+  /** 0–1 asset loading progress driven by the parent */
+  progress: number;
   onLoadingComplete: () => void;
 }
 
-export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps) {
+export default function LoadingScreen({ progress, onLoadingComplete }: LoadingScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [assetsReady, setAssetsReady] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
   const [animDone, setAnimDone] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
-  // Preload videos
-  useEffect(() => {
-    let didFinish = false;
-    const finish = () => {
-      if (didFinish) return;
-      didFinish = true;
-      setAssetsReady(true);
-    };
-    const preloadPromises = VIDEO_URLS.map((url) =>
-      fetch(url)
-        .then((res) => {
-          if (!res.ok) throw new Error(`Failed to fetch ${url}`);
-          return res.blob();
-        })
-        .catch((err) => console.warn('Video preload failed:', err))
-    );
-    Promise.all(preloadPromises).then(finish);
-    const timer = setTimeout(finish, MAX_LOADING_TIME);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // 60fps pixel-decode via requestAnimationFrame
+  // ── Pixel-decode animation (60fps via rAF) ──────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -83,30 +55,20 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
     offCtx.textBaseline = 'middle';
     offCtx.fillText(TARGET_TEXT, W / 2, H / 2);
 
-    // Cache raw pixel data for block-sampling
     const imgData = offCtx.getImageData(0, 0, W * dpr, H * dpr);
     const pixels = imgData.data;
     const srcW = Math.round(W * dpr);
     const srcH = Math.round(H * dpr);
 
-    /**
-     * Render the text at a given pixelation level.
-     * blockSize=1 → draw the offscreen directly (full resolution).
-     * blockSize>1 → sample the offscreen at block intervals and paint squares.
-     */
     const render = (blockSize: number) => {
       ctx.clearRect(0, 0, W, H);
-
       if (blockSize <= 1) {
-        // Draw the offscreen at logical size (1 offscreen px = 1 canvas px after DPR scale)
         ctx.drawImage(offscreen, 0, 0, W, H);
         return;
       }
-
       const bs = Math.ceil(blockSize);
       const cols = Math.ceil(W / bs);
       const rows = Math.ceil(H / bs);
-
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const sx = Math.min(Math.round((col * bs + bs / 2) * dpr), srcW - 1);
@@ -114,9 +76,7 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
           const idx = (sy * srcW + sx) * 4;
           const a = pixels[idx + 3];
           if (a > 15) {
-            const r = pixels[idx];
-            const g = pixels[idx + 1];
-            const b = pixels[idx + 2];
+            const r = pixels[idx], g = pixels[idx + 1], b = pixels[idx + 2];
             ctx.fillStyle = `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
             ctx.fillRect(col * bs, row * bs, bs, bs);
           }
@@ -130,23 +90,13 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
 
     const loop = (now: number) => {
       if (startTime === null) startTime = now;
-      const elapsed = now - startTime;
-      const t = Math.min(elapsed / ANIM_DURATION, 1);
-      const easedT = easeOut(t);
-
-      // Block size goes from START_BLOCK → 1 as t goes 0 → 1
-      const blockSize = START_BLOCK * (1 - easedT) + 1 * easedT;
-      render(blockSize);
-
+      const t = Math.min((now - startTime) / ANIM_DURATION, 1);
+      render(START_BLOCK * (1 - easeOut(t)) + 1 * easeOut(t));
       if (t < 1) {
         rafId = requestAnimationFrame(loop);
       } else {
-        // Final crisp frame
         render(1);
-        if (!done) {
-          done = true;
-          setAnimDone(true);
-        }
+        if (!done) { done = true; setAnimDone(true); }
       }
     };
 
@@ -160,13 +110,13 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
     };
   }, []);
 
-  // Exit once animation + assets both done
+  // ── Exit gate: wait for BOTH decode done AND assets 100% loaded ─────────
   useEffect(() => {
-    if (animDone && assetsReady) {
-      const timer = setTimeout(() => setIsVisible(false), 700);
+    if (animDone && progress >= 1) {
+      const timer = setTimeout(() => setIsVisible(false), 400);
       return () => clearTimeout(timer);
     }
-  }, [animDone, assetsReady]);
+  }, [animDone, progress]);
 
   return (
     <AnimatePresence mode="wait" onExitComplete={onLoadingComplete}>
@@ -175,7 +125,7 @@ export default function LoadingScreen({ onLoadingComplete }: LoadingScreenProps)
           className="fixed inset-0 z-50"
           style={{ backgroundColor: BG_COLOR }}
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 1.0, ease: 'easeInOut' } }}
+          exit={{ opacity: 0, transition: { duration: 0.9, ease: 'easeInOut' } }}
         >
           <canvas
             ref={canvasRef}
