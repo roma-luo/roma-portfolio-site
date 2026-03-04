@@ -122,8 +122,8 @@ const DraggableWindow = memo(function DraggableWindow({
           ${windowState.isMinimized && windowState.type !== 'profile' ? 'h-10 overflow-hidden' : ''}
           ${!isDragging
             ? (isExpanding || isCollapsing)
-              ? 'transition-[width,height,transform] duration-500 ease-out'
-              : 'transition-[width,height] duration-500 ease-out'
+              ? 'transition-[width,height,transform] duration-[280ms] ease-out'
+              : 'transition-[width,height] duration-[280ms] ease-out'
             : ''
           }
         `}

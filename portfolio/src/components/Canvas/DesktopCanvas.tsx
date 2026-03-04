@@ -138,6 +138,8 @@ export default function DesktopCanvas() {
   const temporalPopupsRef = useRef<TemporalPopup[]>([]);
   temporalPopupsRef.current = temporalPopups;
   const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks in-flight preload so we can cancel when the user switches sections quickly
+  const preloadAbortRef = useRef<{ cancelled: boolean } | null>(null);
   // IDs of windows we minimized when a section tab was clicked — restored on collapse
   const [sectionMinimizedIds, setSectionMinimizedIds] = useState<string[]>([]);
   const sectionMinimizedIdsRef = useRef<string[]>([]);
@@ -346,7 +348,11 @@ export default function DesktopCanvas() {
             height: '100%',
             minHeight: 1800,
             transform: `scale(${scale})`,
-            marginBottom: -1200 * (1 - scale)
+            marginBottom: -1200 * (1 - scale),
+            // Isolate this subtree so window resize/collapse animations
+            // don't trigger a full-document layout reflow every frame
+            contain: 'layout',
+            isolation: 'isolate',
           }}
         >
           <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
@@ -576,14 +582,44 @@ export default function DesktopCanvas() {
                     }));
 
                     if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
-                    if (temporalPopupsRef.current.length > 0) {
-                      // Exit existing popups first, then enter new ones
-                      setTemporalPopups([]);
-                      switchTimerRef.current = setTimeout(() => {
+
+                    // Cancel any previous preload so rapid section-switching doesn't pile up
+                    if (preloadAbortRef.current) preloadAbortRef.current.cancelled = true;
+                    const abortToken = { cancelled: false };
+                    preloadAbortRef.current = abortToken;
+
+                    // showPopups: defers to switchTimerRef if previous popups need to exit first
+                    const showPopups = () => {
+                      if (abortToken.cancelled) return;
+                      if (temporalPopupsRef.current.length > 0) {
+                        // Let existing popups animate out first, then bring in the new batch
+                        setTemporalPopups([]);
+                        switchTimerRef.current = setTimeout(() => {
+                          if (!abortToken.cancelled) setTemporalPopups(newPopups);
+                        }, 220);
+                      } else {
                         setTemporalPopups(newPopups);
-                      }, 220);
+                      }
+                    };
+
+                    // Strategy 3: Only fire the animation once every image is loaded.
+                    // If Strategy 1 already pre-fetched them, this resolves instantly from cache.
+                    // Videos are excluded — they stream and can't be fully preloaded here.
+                    const imagesToWait = sectionMedia.filter(src => !src.endsWith('.mp4'));
+                    if (imagesToWait.length === 0) {
+                      // Section is video-only — show immediately
+                      showPopups();
                     } else {
-                      setTemporalPopups(newPopups);
+                      Promise.all(
+                        imagesToWait.map(
+                          src => new Promise<void>(resolve => {
+                            const img = new Image();
+                            img.onload = () => resolve();
+                            img.onerror = () => resolve(); // don't block on a broken asset
+                            img.src = src;
+                          })
+                        )
+                      ).then(showPopups);
                     }
                   }}
                 />
@@ -652,8 +688,20 @@ function ProjectWindowContent({
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!win.isExpanded) setActiveSection(null);
-  }, [win.isExpanded]);
+    if (!win.isExpanded) {
+      setActiveSection(null);
+      return;
+    }
+    // Strategy 1: When the window expands, silently pre-fetch every section image
+    // so they are already in the browser cache by the time the user clicks a button.
+    if (!project) return;
+    const allSectionMedia = Object.values(sections).flat();
+    allSectionMedia.forEach(src => {
+      if (src.endsWith('.mp4')) return; // skip videos — too large to prefetch
+      const img = new Image();
+      img.src = src; // browser caches automatically; zero cost on re-read
+    });
+  }, [win.isExpanded, sections, project]);
 
   if (!project) return <div className="p-4">Project not found</div>;
 
@@ -753,10 +801,12 @@ function TemporalPopupCard({
       dragElastic={0}
       onDragStart={() => { isDragging.current = true; onBringToFront(); }}
       onDragEnd={() => { setTimeout(() => { isDragging.current = false; }, 50); }}
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={{ duration: 0.22, ease: 'easeOut', delay: enterDelay }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      // Exit is opacity-only (no scale) — keeps framer-motion off the composite
+      // thread and avoids JS-driven frame updates for potentially N popups at once
+      transition={{ duration: 0.15, ease: 'easeOut', delay: enterDelay }}
       className="absolute overflow-hidden shadow-2xl group"
       style={{
         left: popup.x,
@@ -773,8 +823,9 @@ function TemporalPopupCard({
       {/* Close button — appears on hover */}
       <button
         onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="absolute top-2 right-2 z-10 p-1 bg-black/50 text-white/60 hover:text-white hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100"
-        style={{ backdropFilter: 'blur(4px)' }}
+        className="absolute top-2 right-2 z-10 p-1 bg-black/60 text-white/60 hover:text-white hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100"
+      // backdropFilter removed — each popup's blur is recalculated every frame
+      // during exit animations, costing O(N) blur compositing passes
       >
         <X size={14} />
       </button>
