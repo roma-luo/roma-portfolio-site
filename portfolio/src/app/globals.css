@@ -10,4 +10,54 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Calibri", sans-serif;
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22white%22%20%2F%3E%3C%2Fsvg%3E') 12 12, auto;
+}
+
+/* Apply custom cursor to all elements to ensure consistency */
+* {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22white%22%20%2F%3E%3C%2Fsvg%3E') 12 12, auto !important;
+}
+
+/* Provide a slightly different cursor for clickable elements */
+.cursor-pointer,
+a,
+button,
+[role="button"],
+input,
+select,
+textarea {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22%20fill%3D%22white%22%20opacity%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%20opacity%3D%220.4%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E') 12 12, pointer !important;
+}
+
+/* Ensure grab states retain custom cursor */
+.cursor-grab,
+.cursor-grabbing,
+[style*="cursor: grab"],
+[style*="cursor: grabbing"] {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%20fill%3D%22white%22%20%2F%3E%3C%2Fsvg%3E') 12 12, auto !important;
+}
+
+/* Increase cursor size inside windows */
+.window-hover-cursor,
+.window-hover-cursor * {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%225%22%20fill%3D%22white%22%20%2F%3E%3C%2Fsvg%3E') 12 12, auto !important;
+}
+
+/* Ensure clickable elements inside window get appropriately sized pointer */
+.window-hover-cursor .cursor-pointer,
+.window-hover-cursor a,
+.window-hover-cursor button,
+.window-hover-cursor [role="button"],
+.window-hover-cursor input,
+.window-hover-cursor select,
+.window-hover-cursor textarea {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%226%22%20fill%3D%22white%22%20opacity%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%20opacity%3D%220.4%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E') 12 12, pointer !important;
+}
+
+/* Ensure grab states retain custom cursor inside window */
+.window-hover-cursor .cursor-grab,
+.window-hover-cursor .cursor-grabbing,
+.window-hover-cursor [style*="cursor: grab"],
+.window-hover-cursor [style*="cursor: grabbing"] {
+  cursor: url('data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%225%22%20fill%3D%22white%22%20%2F%3E%3C%2Fsvg%3E') 12 12, auto !important;
 }

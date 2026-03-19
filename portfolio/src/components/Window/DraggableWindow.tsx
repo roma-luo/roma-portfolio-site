@@ -118,7 +118,7 @@ const DraggableWindow = memo(function DraggableWindow({
       <div
         ref={nodeRef}
         data-window-id={windowState.id}
-        className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform
+        className={`absolute flex flex-col shadow-2xl border border-white/10 will-change-transform window-hover-cursor
           ${windowState.isMinimized && windowState.type !== 'profile' ? 'h-10 overflow-hidden' : ''}
           ${!isDragging
             ? (isExpanding || isCollapsing)
@@ -129,8 +129,8 @@ const DraggableWindow = memo(function DraggableWindow({
         `}
         style={{
           zIndex: windowState.zIndex,
-          width: windowState.isMinimized && windowState.type === 'profile' ? 'auto' : width,
-          height: windowState.isMinimized ? 'auto' : height,
+          width: width,
+          height: windowState.isMinimized && windowState.type !== 'profile' ? 'auto' : height,
           background: '#121212',
           color: 'white',
         }}

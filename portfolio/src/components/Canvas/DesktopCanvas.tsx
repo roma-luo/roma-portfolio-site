@@ -21,7 +21,24 @@ interface TemporalPopup {
 }
 
 export default function DesktopCanvas() {
+  // ── Dot-grid layout ────────────────────────────────────────────────────────
+  // Canvas: 2300 × 1800 px.  Grid: 4 columns × 5 rows.
+  //   Columns (x left-edge of window):  90 | 640 | 1190 | 1740
+  //   Rows    (y top-edge, top→bottom): 60 | 380 | 700  | 1020 | 1340
+  //
+  // Assignment (col 0-indexed, row 0-indexed, row 0 = topmost):
+  //   col 0: Profile(r0), Awards(r1), Contact(r2), Experience(r3)
+  //   col 1: p1(r0), p2(r1), p3(r2), p4(r3), Location(r4)
+  //   col 2: p5(r0), p6(r1), p7(r2), p8(r3), mini-p3-1(r4)
+  //   col 3: p9(r0), p10(r1), mini-p2-1(r2), mini-p1-1(r3)
+  // ────────────────────────────────────────────────────────────────────────────
+  const GRID_COLS = [90, 640, 1190, 1740];
+  const GRID_ROWS = [60, 380, 700, 1020, 1340];
+  const gx = (col: number) => GRID_COLS[col] ?? 90;
+  const gy = (row: number) => GRID_ROWS[row] ?? 60;
+
   const INITIAL_WINDOWS: WindowState[] = useMemo(() => [
+    // ── Column 0: info panels ──────────────────────────────────────────────
     {
       id: 'profile',
       title: 'Profile',
@@ -29,43 +46,56 @@ export default function DesktopCanvas() {
       isMinimized: true,
       isExpanded: false,
       zIndex: 10,
-      position: { x: 20, y: 120 },
-      size: { width: 480, height: 690 },
+      position: { x: gx(0), y: gy(0) },
+      size: { width: 320, height: 240 },
       type: 'profile',
     },
     {
       id: 'awards',
       title: 'Awards',
       isOpen: true,
-      isMinimized: true,
+      isMinimized: false,
       isExpanded: false,
       zIndex: 13,
-      position: { x: 20, y: 290 },
-      size: { width: 280, height: 310 },
+      position: { x: gx(0), y: gy(1) },
+      size: { width: 320, height: 240 },
       type: 'awards',
     },
     {
       id: 'contact',
       title: 'Contact',
       isOpen: true,
-      isMinimized: true,
+      isMinimized: false,
       isExpanded: false,
       zIndex: 12,
-      position: { x: 20, y: 360 },
-      size: { width: 280, height: 250 },
+      position: { x: gx(0), y: gy(3) },
+      size: { width: 320, height: 240 },
       type: 'contact',
     },
     {
       id: 'experience',
       title: 'Professional Experience',
       isOpen: true,
-      isMinimized: true,
+      isMinimized: false,
       isExpanded: false,
       zIndex: 11,
-      position: { x: 20, y: 430 },
-      size: { width: 280, height: 400 },
+      position: { x: gx(0), y: gy(2) },
+      size: { width: 320, height: 240 },
       type: 'experience',
     },
+    // ── Column 1: projects p1–p4 + Location ───────────────────────────────
+    ...projects.slice(0, 4).map((p, i) => ({
+      id: `project-${p.id}`,
+      title: p.title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: i + 1,
+      position: { x: gx(1), y: gy(i) },
+      size: { width: 320, height: 240 },
+      type: 'project' as const,
+      projectId: p.id,
+    })),
     {
       id: 'location',
       title: 'Location',
@@ -73,54 +103,75 @@ export default function DesktopCanvas() {
       isMinimized: false,
       isExpanded: false,
       zIndex: 10,
-      position: { x: 1670, y: 120 },
+      position: { x: gx(1), y: gy(4) },
       size: { width: 500, height: 240 },
       type: 'location',
     },
-    ...projects.map((p, i) => {
-      let x, y;
-      if (i < 5) {
-        const row = Math.floor(i / 3);
-        const col = i % 3;
-        x = 650 + col * 340;
-        y = 120 + row * 260;
-      } else {
-        const idx = i - 5;
-        const row = Math.floor(idx / 3);
-        const col = idx % 3;
-        x = 650 + col * 340;
-        y = 720 + row * 260;
-      }
-      return {
-        id: `project-${p.id}`,
-        title: p.title,
-        isOpen: true,
-        isMinimized: false,
-        isExpanded: false,
-        zIndex: i + 1,
-        position: { x, y },
-        size: { width: 320, height: 240 },
-        type: 'project' as const,
-        projectId: p.id,
-      };
-    }),
-    ...miniWindows.map((mw, i) => {
-      const x = 650 + i * 340;
-      const y = 1320;
-      return {
-        id: mw.id,
-        title: mw.title,
-        isOpen: true,
-        isMinimized: false,
-        isExpanded: false,
-        zIndex: projects.length + i + 1,
-        position: { x, y },
-        size: { width: 320, height: 240 },
-        type: 'miniWindow' as const,
-        parentProjectId: mw.parentProjectId,
-        mediaSrc: mw.mediaSrc,
-      };
-    }),
+    // ── Column 2: projects p5–p8 + mini-p3-1 ──────────────────────────────
+    ...projects.slice(4, 8).map((p, i) => ({
+      id: `project-${p.id}`,
+      title: p.title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: i + 5,
+      position: { x: gx(2), y: gy(i) },
+      size: { width: 320, height: 240 },
+      type: 'project' as const,
+      projectId: p.id,
+    })),
+    {
+      id: miniWindows[0].id,
+      title: miniWindows[0].title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: projects.length + 1,
+      position: { x: gx(2), y: gy(4) },
+      size: { width: 320, height: 240 },
+      type: 'miniWindow' as const,
+      parentProjectId: miniWindows[0].parentProjectId,
+      mediaSrc: miniWindows[0].mediaSrc,
+    },
+    // ── Column 3: projects p9–p10 + mini-p2-1 + mini-p1-1 ─────────────────
+    ...projects.slice(8, 10).map((p, i) => ({
+      id: `project-${p.id}`,
+      title: p.title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: i + 9,
+      position: { x: gx(3), y: gy(i) },
+      size: { width: 320, height: 240 },
+      type: 'project' as const,
+      projectId: p.id,
+    })),
+    {
+      id: miniWindows[1].id,
+      title: miniWindows[1].title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: projects.length + 2,
+      position: { x: gx(3), y: gy(2) },
+      size: { width: 320, height: 240 },
+      type: 'miniWindow' as const,
+      parentProjectId: miniWindows[1].parentProjectId,
+      mediaSrc: miniWindows[1].mediaSrc,
+    },
+    {
+      id: miniWindows[2].id,
+      title: miniWindows[2].title,
+      isOpen: true,
+      isMinimized: false,
+      isExpanded: false,
+      zIndex: projects.length + 3,
+      position: { x: gx(3), y: gy(3) },
+      size: { width: 320, height: 240 },
+      type: 'miniWindow' as const,
+      parentProjectId: miniWindows[2].parentProjectId,
+      mediaSrc: miniWindows[2].mediaSrc,
+    },
   ], []);
 
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
@@ -355,17 +406,7 @@ export default function DesktopCanvas() {
             isolation: 'isolate',
           }}
         >
-          <div className="absolute top-[60px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-medium uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
-              Research /<br />Computation
-            </h2>
-          </div>
 
-          <div className="absolute top-[660px] left-[650px] pointer-events-none select-none">
-            <h2 className="text-white/20 text-6xl font-medium uppercase tracking-tighter" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
-              Architectural<br />Design
-            </h2>
-          </div>
 
           {windows.filter(w => w.isOpen).map((win) => (
             <DraggableWindow
@@ -382,59 +423,39 @@ export default function DesktopCanvas() {
               {win.type === 'profile' ? (
                 win.isMinimized ? (
                   // Minimized / compact profile card
-                  <div className="px-4 pt-2 pb-4">
-                    <h1 className="text-xl font-bold leading-tight">{profileData.name}</h1>
-                    <p className="text-sm text-gray-300 mt-0.5">{profileData.title}</p>
-                    <p className="text-xs text-gray-400 mt-2 font-light leading-relaxed">{profileData.intro}</p>
+                  <div className="px-4 pt-3 pb-4 h-full flex flex-col justify-center gap-2">
+                    <style>{`@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@100&display=swap');`}</style>
+                    <h1 className="text-2xl uppercase tracking-widest leading-none" style={{ fontWeight: 100 }}>
+                      Roma Luo | <span style={{ fontFamily: "'Noto Sans SC', sans-serif", fontWeight: 100 }}>羅 馬</span>
+                    </h1>
+                    <p className="text-xs text-white tracking-wide" style={{ fontWeight: 300 }}>Architectural Designer, Computational Designer</p>
+                    <p className="text-xs text-gray-400 font-light leading-relaxed mt-1 text-justify">Roma Luo is a Chinese-born Australian architectural designer working at the intersection of spatial design, computation, and responsive environments. Shaped by a multicultural upbringing, he has lived and worked across Australia, Hong Kong, Mainland China, and Japan.</p>
                   </div>
                 ) : (
-                  // Full profile
-                  <div className="p-4 flex gap-4">
-                    <div className="flex-1 space-y-6">
-                      <div>
-                        <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
-                        <p className="text-lg text-gray-300">{profileData.title}</p>
-                        <p className="text-sm text-gray-400 mt-1 font-light">{profileData.intro}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Skills</h3>
-                        <div className="space-y-4">
-                          {Object.entries(profileData.skills).map(([category, skills]) => (
-                            <div key={category}>
-                              <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">{category}</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {skills.map(skill => (
-                                  <span key={skill} className="px-2 py-1 bg-white/10 text-xs hover:bg-white/20 transition-colors cursor-default">
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+                  // Expanded: education only
+                  <div className="p-5 space-y-4 h-full overflow-y-auto custom-scrollbar">
+                    <style jsx>{`
+                      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                      .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+                      .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 3px; }
+                      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
+                    `}</style>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Education</h3>
+                    <div className="space-y-4">
+                      {profileData.education.map((edu, i) => (
+                        <div key={i} className="relative pl-4 border-l border-white/20 text-sm">
+                          <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#121212] border border-white/40"></div>
+                          <div className="font-medium">{edu.school}</div>
+                          <div className="text-gray-400 text-xs">{edu.degree}</div>
+                          <div className="text-gray-500 text-xs">{edu.year}</div>
                         </div>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2">Education</h3>
-                        {profileData.education.map((edu, i) => (
-                          <div key={i} className="text-sm">
-                            <div className="font-medium">{edu.school}</div>
-                            <div className="text-gray-400">{edu.degree}, {edu.year}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <img src="/images/profile/roma.jpg" alt="Roma Luo" className="w-32 h-32 object-cover border-2 border-white/20" />
+                      ))}
                     </div>
                   </div>
                 )
               ) : win.type === 'contact' ? (
-                <div className="p-4 space-y-3">
-                  <div>
-                    <h2 className="text-xl font-bold mb-3">Get in Touch</h2>
-                    <p className="text-gray-300 text-xs mb-4 font-light">Feel free to reach out for collaborations, opportunities, or just to connect.</p>
-                  </div>
-                  <div className="flex items-center gap-6 justify-center">
+                <div className="h-full flex items-center justify-center">
+                  <div className="flex items-center gap-8 justify-center">
                     <a href="mailto:roma.luo@outlook.com" className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group" title="Email: roma.luo@outlook.com">
                       <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
                         <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -451,12 +472,29 @@ export default function DesktopCanvas() {
                       </div>
                       <span className="text-xs text-gray-400">LinkedIn</span>
                     </a>
+                    <a href="https://www.instagram.com/luo_roma?igsh=Ym95c3Q4Z2hlajhs&utm_source=qr" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity flex flex-col items-center gap-2 group" title="Instagram">
+                      <div className="p-3 bg-white/5 group-hover:bg-white/10 transition-colors">
+                        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs text-gray-400">Instagram</span>
+                    </a>
                   </div>
                 </div>
               ) : win.type === 'awards' ? (
-                <div className="p-4 space-y-3">
-                  <h2 className="text-xl font-bold mb-3">Awards & Recognition</h2>
+                <div className="p-4 space-y-3 h-full overflow-y-auto custom-scrollbar">
+                  <style jsx>{`
+                    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 3px; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
+                  `}</style>
                   <div className="space-y-2 text-sm">
+                    <div className="border-l-2 border-white/30 pl-3 py-1">
+                      <div className="font-semibold">CAADRIA Tokyo Exhibition</div>
+                      <div className="text-gray-400 text-xs">2025</div>
+                    </div>
                     <div className="border-l-2 border-white/30 pl-3 py-1">
                       <div className="font-semibold">Light-Weight Structure Association Australasia Competition 2025</div>
                       <div className="text-gray-400 text-xs">2025</div>
@@ -479,10 +517,6 @@ export default function DesktopCanvas() {
                     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 3px; }
                     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
                   `}</style>
-                  <div>
-                    <h2 className="text-xl font-bold mb-1">Professional Experience</h2>
-                    <p className="text-xs text-gray-400">Career History & Roles</p>
-                  </div>
                   <div className="space-y-6">
                     {experienceData.map((job, i) => (
                       <div key={i} className="relative pl-4 border-l border-white/20">
@@ -494,7 +528,7 @@ export default function DesktopCanvas() {
                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">{job.period}</span>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-300 leading-relaxed font-light">{job.description}</p>
+
                       </div>
                     ))}
                   </div>
