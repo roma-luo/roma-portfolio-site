@@ -13,15 +13,15 @@ import { preloadAssets } from '@/lib/preloadAssets';
 const CRITICAL_ASSETS = [
   // Project thumbnails (shown immediately in the window grid)
   '/images/projects/p1-1.mp4',
-  '/images/projects/p2-1.jpg',
+  '/images/projects/p2-1.webp',
   '/images/projects/p3-1.mp4',
-  '/images/projects/p4-1.png',
-  '/images/projects/p5-1.png',
-  '/images/projects/p6-1.png',
+  '/images/projects/p4-1.webp',
+  '/images/projects/p5-1.webp',
+  '/images/projects/p6-1.webp',
   '/images/projects/p7-1.jpg',
-  '/images/projects/p8-1.png',
-  '/images/projects/p9-1.png',
-  '/images/projects/p10-1.jpg',
+  '/images/projects/p8-1.webp',
+  '/images/projects/p9-1.webp',
+  '/images/projects/p10-1.webp',
   // Mini-window videos
   '/images/projects/p3-extra-1.mp4',
   '/images/projects/p2-extra-1.mp4',

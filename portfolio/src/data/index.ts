@@ -6,15 +6,15 @@ export type ProjectCategory = 'research/computation' | 'architectural design';
 export function getProjectMedia(projectId: string): string[] {
   const thumbnailMap: Record<string, string> = {
     'p1': '/images/projects/p1-1.mp4',
-    'p2': '/images/projects/p2-1.jpg',
+    'p2': '/images/projects/p2-1.webp',
     'p3': '/images/projects/p3-1.mp4',
-    'p4': '/images/projects/p4-1.png',
-    'p5': '/images/projects/p5-1.png',
-    'p6': '/images/projects/p6-1.png',
+    'p4': '/images/projects/p4-1.webp',
+    'p5': '/images/projects/p5-1.webp',
+    'p6': '/images/projects/p6-1.webp',
     'p7': '/images/projects/p7-1.jpg',
-    'p8': '/images/projects/p8-1.png',
-    'p9': '/images/projects/p9-1.png',
-    'p10': '/images/projects/p10-1.jpg',
+    'p8': '/images/projects/p8-1.webp',
+    'p9': '/images/projects/p9-1.webp',
+    'p10': '/images/projects/p10-1.webp',
   };
   const src = thumbnailMap[projectId];
   return src ? [src] : [];
@@ -25,65 +25,65 @@ export function getProjectMedia(projectId: string): string[] {
 export function getProjectSections(projectId: string): Record<string, string[]> {
   const allSectionFiles: Record<string, string[]> = {
     'p1': [
-      '/images/projects/p1-Models-1.png',
-      '/images/projects/p1-Models-2.png',
-      '/images/projects/p1-Models-3.png',
-      '/images/projects/p1-Models-4.JPG',
-      '/images/projects/p1-Drawings-1.png',
-      '/images/projects/p1-Drawings-2.png',
-      '/images/projects/p1-Drawings-3.png',
+      '/images/projects/p1-Models-1.webp',
+      '/images/projects/p1-Models-2.webp',
+      '/images/projects/p1-Models-3.webp',
+      '/images/projects/p1-Models-4.webp',
+      '/images/projects/p1-Drawings-1.webp',
+      '/images/projects/p1-Drawings-2.webp',
+      '/images/projects/p1-Drawings-3.webp',
     ],
     'p2': [
-      '/images/projects/p2-Models-1.jpg',
-      '/images/projects/p2-Models-2.jpg',
-      '/images/projects/p2-Models-3.jpg',
-      '/images/projects/p2-Models-4.jpg',
-      '/images/projects/p2-Details-1.png',
+      '/images/projects/p2-Models-1.webp',
+      '/images/projects/p2-Models-2.webp',
+      '/images/projects/p2-Models-3.webp',
+      '/images/projects/p2-Models-4.webp',
+      '/images/projects/p2-Details-1.webp',
     ],
     'p3': [
-      '/images/projects/p3-Models-1.jpg',
-      '/images/projects/p3-Models-2.jpg',
-      '/images/projects/p3-Models-3.jpg',
-      '/images/projects/p3-Details-1.png',
+      '/images/projects/p3-Models-1.webp',
+      '/images/projects/p3-Models-2.webp',
+      '/images/projects/p3-Models-3.webp',
+      '/images/projects/p3-Details-1.webp',
       '/images/projects/p3-Details-2.mp4',
-      '/images/projects/p3-Details-3.png',
-      '/images/projects/p3-Details-4.png',
-      '/images/projects/p3-Drawings-1.png',
+      '/images/projects/p3-Details-3.webp',
+      '/images/projects/p3-Details-4.webp',
+      '/images/projects/p3-Drawings-1.webp',
     ],
     'p4': [
-      '/images/projects/p4-Details-1.png',
-      '/images/projects/p4-Details-2.png',
-      '/images/projects/p4-Details-3.png',
-      '/images/projects/p4-Details-4.png',
+      '/images/projects/p4-Details-1.webp',
+      '/images/projects/p4-Details-2.webp',
+      '/images/projects/p4-Details-3.webp',
+      '/images/projects/p4-Details-4.webp',
     ],
     'p5': [
-      '/images/projects/p5-Details-1.png',
-      '/images/projects/p5-Details-2.png',
-      '/images/projects/p5-Details-3.png',
-      '/images/projects/p5-Details-4.png',
-      '/images/projects/p5-Details-5.png',
-      '/images/projects/p5-Details-6.png',
-      '/images/projects/p5-Details-7.png',
+      '/images/projects/p5-Details-1.webp',
+      '/images/projects/p5-Details-2.webp',
+      '/images/projects/p5-Details-3.webp',
+      '/images/projects/p5-Details-4.webp',
+      '/images/projects/p5-Details-5.webp',
+      '/images/projects/p5-Details-6.webp',
+      '/images/projects/p5-Details-7.webp',
     ],
     'p6': [
-      '/images/projects/p6-Drawings-1.png',
+      '/images/projects/p6-Drawings-1.webp',
     ],
     'p7': [
-      '/images/projects/p7-Drawings-1.png',
-      '/images/projects/p7-Drawings-2.png',
-      '/images/projects/p7-Drawings-3.png',
+      '/images/projects/p7-Drawings-1.webp',
+      '/images/projects/p7-Drawings-2.webp',
+      '/images/projects/p7-Drawings-3.webp',
     ],
     'p8': [
-      '/images/projects/p8-Drawings-1.jpg',
-      '/images/projects/p8-Drawings-2.jpg',
+      '/images/projects/p8-Drawings-1.webp',
+      '/images/projects/p8-Drawings-2.webp',
     ],
     'p9': [
-      '/images/projects/p9-Drawings-1.png',
-      '/images/projects/p9-Drawings-2.png',
+      '/images/projects/p9-Drawings-1.webp',
+      '/images/projects/p9-Drawings-2.webp',
     ],
     'p10': [
-      '/images/projects/p10-Drawings-1.jpg',
-      '/images/projects/p10-Drawings-2.jpg',
+      '/images/projects/p10-Drawings-1.webp',
+      '/images/projects/p10-Drawings-2.webp',
     ],
   };
 
@@ -124,7 +124,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'branch-plus',
     title: 'branch+',
     shortDescription: 'Drone-based high-precision scanning and clay 3D printing',
-    thumbnail: '/images/projects/p2-1.jpg',
+    thumbnail: '/images/projects/p2-1.webp',
     tags: ['Computational', 'Parametric', 'Fabrication'],
     category: 'research/computation',
     content: {
@@ -152,11 +152,11 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'cityone',
     title: 'cityone.',
     shortDescription: 'Research on lightweight, low-surveillance public participation in urban planning',
-    thumbnail: '/images/projects/p4-1.png',
+    thumbnail: '/images/projects/p4-1.webp',
     tags: ['Urban', 'Big Data', 'Algorithms'],
     category: 'research/computation',
     content: {
-      description: 'CityOne is a lightweight public-participation system for urban planning. By letting people speak a single sentence about their everyday urban experience, the system converts subjective feelings and concrete observations into structured “city cards” through a dual-channel algorithm. These cards surface shared concerns and minority voices, and translate them into small, testable urban interventions—bridging everyday experience and data-driven decision-making with minimal surveillance and effort.',
+      description: 'CityOne is a lightweight public-participation system for urban planning. By letting people speak a single sentence about their everyday urban experience, the system converts subjective feelings and concrete observations into structured “city cards�?through a dual-channel algorithm. These cards surface shared concerns and minority voices, and translate them into small, testable urban interventions—bridging everyday experience and data-driven decision-making with minimal surveillance and effort.',
       role: 'Individual Work',
       technologies: ['App Development', 'Python'],
     }
@@ -166,7 +166,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'cityrefit',
     title: 'cityrefit.',
     shortDescription: 'Research on an evidence-driven, human–AI workflow for spatial reconfiguration',
-    thumbnail: '/images/projects/p5-1.png',
+    thumbnail: '/images/projects/p5-1.webp',
     tags: ['Urban', 'Machine Learning', 'AI'],
     category: 'research/computation',
     content: {
@@ -180,7 +180,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'chile-aerospace-research-institute',
     title: 'chile aerospace research institute.',
     shortDescription: 'Public building design',
-    thumbnail: '/images/projects/p6-1.png',
+    thumbnail: '/images/projects/p6-1.webp',
     tags: ['architecture design'],
     category: 'architectural design',
     content: {
@@ -208,7 +208,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'the-elevation',
     title: 'the elevation.',
     shortDescription: 'Public building design',
-    thumbnail: '/images/projects/p8-1.png',
+    thumbnail: '/images/projects/p8-1.webp',
     tags: ['architecture design'],
     category: 'architectural design',
     content: {
@@ -222,7 +222,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'gallery-conference',
     title: 'gallery+conference.',
     shortDescription: 'Gallery design',
-    thumbnail: '/images/projects/p9-1.png',
+    thumbnail: '/images/projects/p9-1.webp',
     tags: ['architecture design'],
     category: 'architectural design',
     content: {
@@ -236,7 +236,7 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
     slug: 'the-veil-works',
     title: 'the veil works.',
     shortDescription: 'Factory design',
-    thumbnail: '/images/projects/p10-1.jpg',
+    thumbnail: '/images/projects/p10-1.webp',
     tags: ['architecture design'],
     category: 'architectural design',
     content: {
@@ -247,12 +247,12 @@ export const projects: (Project & { category: ProjectCategory; slug: string })[]
   }
 ];
 
-/** Map from URL slug → project id, for deep-link resolution */
+/** Map from URL slug �?project id, for deep-link resolution */
 export const slugToProjectId: Record<string, string> = Object.fromEntries(
   projects.map(p => [p.slug, p.id])
 );
 
-/** Map from project id → URL slug */
+/** Map from project id �?URL slug */
 export const projectIdToSlug: Record<string, string> = Object.fromEntries(
   projects.map(p => [p.id, p.slug])
 );
@@ -340,7 +340,7 @@ export const experienceData = [
   },
   {
     role: 'Architectural Intern',
-    company: 'RPtecture™ Architecture',
+    company: 'RPtecture�?Architecture',
     period: '2020.02 - 2020.04',
     description: 'Assisted in concept development and physical model making. Produced visualization assets for client presentations.'
   }
