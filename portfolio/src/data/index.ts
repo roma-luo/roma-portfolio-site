@@ -104,9 +104,10 @@ export function getProjectSections(projectId: string): Record<string, string[]> 
   return sections;
 }
 
-export const projects: (Project & { category: ProjectCategory })[] = [
+export const projects: (Project & { category: ProjectCategory; slug: string })[] = [
   {
     id: 'p1',
+    slug: 'shodo-desk',
     title: 'shodō desk.',
     shortDescription: 'An installation that translates interpersonal exchanges into public traces',
     thumbnail: '/images/projects/p1-1.png',
@@ -120,6 +121,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p2',
+    slug: 'branch-plus',
     title: 'branch+',
     shortDescription: 'Drone-based high-precision scanning and clay 3D printing',
     thumbnail: '/images/projects/p2-1.jpg',
@@ -133,6 +135,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p3',
+    slug: 'building-as-agent',
     title: 'building as agent.',
     shortDescription: 'Research on how buildings can adapt and regenerate through AI-driven systems',
     thumbnail: '/images/projects/p3-1.mp4',
@@ -146,6 +149,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p4',
+    slug: 'cityone',
     title: 'cityone.',
     shortDescription: 'Research on lightweight, low-surveillance public participation in urban planning',
     thumbnail: '/images/projects/p4-1.png',
@@ -159,6 +163,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p5',
+    slug: 'cityrefit',
     title: 'cityrefit.',
     shortDescription: 'Research on an evidence-driven, human–AI workflow for spatial reconfiguration',
     thumbnail: '/images/projects/p5-1.png',
@@ -172,6 +177,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p6',
+    slug: 'chile-aerospace-research-institute',
     title: 'chile aerospace research institute.',
     shortDescription: 'Public building design',
     thumbnail: '/images/projects/p6-1.png',
@@ -185,6 +191,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p7',
+    slug: 'beneath-the-gantry',
     title: 'beneath the gantry.',
     shortDescription: 'Residential design + Public building design',
     thumbnail: '/images/projects/p7-1.jpg',
@@ -198,6 +205,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p8',
+    slug: 'the-elevation',
     title: 'the elevation.',
     shortDescription: 'Public building design',
     thumbnail: '/images/projects/p8-1.png',
@@ -211,6 +219,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p9',
+    slug: 'gallery-conference',
     title: 'gallery+conference.',
     shortDescription: 'Gallery design',
     thumbnail: '/images/projects/p9-1.png',
@@ -224,6 +233,7 @@ export const projects: (Project & { category: ProjectCategory })[] = [
   },
   {
     id: 'p10',
+    slug: 'the-veil-works',
     title: 'the veil works.',
     shortDescription: 'Factory design',
     thumbnail: '/images/projects/p10-1.jpg',
@@ -236,6 +246,16 @@ export const projects: (Project & { category: ProjectCategory })[] = [
     }
   }
 ];
+
+/** Map from URL slug → project id, for deep-link resolution */
+export const slugToProjectId: Record<string, string> = Object.fromEntries(
+  projects.map(p => [p.slug, p.id])
+);
+
+/** Map from project id → URL slug */
+export const projectIdToSlug: Record<string, string> = Object.fromEntries(
+  projects.map(p => [p.id, p.slug])
+);
 
 export interface MiniWindowConfig {
   id: string;

@@ -6,7 +6,7 @@ import DraggableWindow from '../Window/DraggableWindow';
 import LocationWindowContent from '../Window/LocationWindowContent';
 import Lightbox from '../Window/Lightbox';
 import { WindowState } from '@/types';
-import { projects, profileData, experienceData, getProjectMedia, getProjectSections, miniWindows } from '@/data';
+import { projects, profileData, experienceData, getProjectMedia, getProjectSections, miniWindows, projectIdToSlug, slugToProjectId } from '@/data';
 import { X } from 'lucide-react';
 
 // Temporal popup spawned when a section tab is clicked
@@ -195,6 +195,131 @@ export default function DesktopCanvas() {
   const [sectionMinimizedIds, setSectionMinimizedIds] = useState<string[]>([]);
   const sectionMinimizedIdsRef = useRef<string[]>([]);
   sectionMinimizedIdsRef.current = sectionMinimizedIds;
+
+  // ── URL routing: sync browser URL with the currently-expanded project ──────
+  // When a project window expands  → pushState to /project-slug
+  // When it collapses / closes    → pushState back to /
+  // On browser back/forward (popstate) → open/close the right project
+  const prevExpandedProjectIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const expandedProjectWindow = windows.find(
+      w => w.type === 'project' && w.isOpen && w.isExpanded && w.projectId
+    );
+    const expandedProjectId = expandedProjectWindow?.projectId ?? null;
+
+    if (expandedProjectId === prevExpandedProjectIdRef.current) return;
+    prevExpandedProjectIdRef.current = expandedProjectId;
+
+    if (expandedProjectId) {
+      const slug = projectIdToSlug[expandedProjectId];
+      if (slug && window.location.pathname !== `/${slug}`) {
+        window.history.pushState({ projectId: expandedProjectId }, '', `/${slug}`);
+      }
+    } else {
+      if (window.location.pathname !== '/') {
+        window.history.pushState({}, '', '/');
+      }
+    }
+  }, [windows]);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const projectId: string | null = e.state?.projectId ?? null;
+
+      if (projectId) {
+        // Expand that project window
+        setWindows(prev => {
+          const targetId = `project-${projectId}`;
+          const target = prev.find(w => w.id === targetId);
+          if (!target || target.isExpanded) return prev;
+          const maxZ = Math.max(...prev.map(w => w.zIndex));
+          const expandedPosition = (() => {
+            const PADDING = 20;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const BASE_WIDTH = 2300;
+            const MAX_WIDTH = 1920;
+            const targetWidth = Math.min(width, MAX_WIDTH);
+            const currentScale = targetWidth / BASE_WIDTH;
+            const visibleWidthScaled = width / currentScale;
+            const visibleHeightScaled = height / currentScale;
+            const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
+            let x = target.position.x;
+            let y = target.position.y;
+            const expandedWidth = 800, expandedHeight = 600;
+            if (x + expandedWidth > BASE_WIDTH + offsetX - PADDING) x = Math.max(-offsetX + PADDING, BASE_WIDTH + offsetX - expandedWidth - PADDING);
+            if (y + expandedHeight > visibleHeightScaled - PADDING) y = Math.max(PADDING, visibleHeightScaled - expandedHeight - PADDING);
+            if (x < -offsetX + PADDING) x = -offsetX + PADDING;
+            if (y < PADDING) y = PADDING;
+            return { x, y };
+          })();
+          return prev.map(w =>
+            w.id === targetId
+              ? { ...w, isExpanded: true, zIndex: maxZ + 1, preExpandPosition: w.position, position: expandedPosition }
+              : w
+          );
+        });
+      } else {
+        // Collapse all expanded project windows
+        setWindows(prev =>
+          prev.map(w => {
+            if (w.type !== 'project' || !w.isExpanded) return w;
+            const restoredPosition = w.preExpandPosition ?? w.position;
+            return { ...w, isExpanded: false, position: restoredPosition, preExpandPosition: undefined };
+          })
+        );
+        setTemporalPopups([]);
+        setProjectInfoOverlay(null);
+        setSectionMinimizedIds([]);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  // ── END URL routing ─────────────────────────────────────────────────────────
+
+  // ── Deep-link: on first render, auto-expand the project matching the URL ────
+  useEffect(() => {
+    const slug = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    if (!slug) return;
+    const projectId = slugToProjectId[slug];
+    if (!projectId) return;
+
+    const targetId = `project-${projectId}`;
+    setWindows(prev => {
+      const target = prev.find(w => w.id === targetId);
+      if (!target) return prev;
+      const maxZ = Math.max(...prev.map(w => w.zIndex));
+      const PADDING = 20;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const BASE_WIDTH = 2300;
+      const MAX_WIDTH = 1920;
+      const currentScale = Math.min(width, MAX_WIDTH) / BASE_WIDTH;
+      const visibleWidthScaled = width / currentScale;
+      const visibleHeightScaled = height / currentScale;
+      const offsetX = (visibleWidthScaled - BASE_WIDTH) / 2;
+      let x = target.position.x;
+      let y = target.position.y;
+      const expandedWidth = 800, expandedHeight = 600;
+      if (x + expandedWidth > BASE_WIDTH + offsetX - PADDING) x = Math.max(-offsetX + PADDING, BASE_WIDTH + offsetX - expandedWidth - PADDING);
+      if (y + expandedHeight > visibleHeightScaled - PADDING) y = Math.max(PADDING, visibleHeightScaled - expandedHeight - PADDING);
+      if (x < -offsetX + PADDING) x = -offsetX + PADDING;
+      if (y < PADDING) y = PADDING;
+      return prev.map(w =>
+        w.id === targetId
+          ? { ...w, isExpanded: true, zIndex: maxZ + 1, preExpandPosition: w.position, position: { x, y } }
+          : w
+      );
+    });
+    // Seed history state so the back button works correctly
+    window.history.replaceState({ projectId }, '', `/${slug}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // ── END deep-link ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
